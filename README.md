@@ -67,82 +67,9 @@ Agent 写小说。写、审、改，全程接管。
   <img src="assets/screenshot-state.png" width="800" alt="长期记忆快照">
 </p>
 
-### 三层规则架构
-
-InkOS 采用三层规则合并机制，让通用规则、题材规范、单本书定制层层叠加：
-
-```
-通用规则（~25 条，代码内置）
-  ↓ 合并
-题材规范（genres/*.md，按题材定制）
-  ↓ 合并
-单本书规则（books/{id}/story/book_rules.md，逐本定制）
-  ↓ 注入 prompt
-LLM
-```
-
-**通用层** — 人物塑造、叙事技法、逻辑自洽、语言约束、去AI味铁律（共 ~25 条），适用于所有题材。
-
-**题材层** — 内置 5 个题材 profile（玄幻、仙侠、都市、恐怖、通用），每个 profile 定义：
-- 章节类型（战斗章/氛围章/商战章…）
-- 高疲劳词列表 + AI 标记词检测
-- 数值系统 / 战力体系 / 年代考据开关
-- 节奏规则、爽点类型
-- 审计维度启用列表
-- 题材禁忌、语言铁律（带 ✗→✓ 示例）、叙事指导
-
-**书籍层** — 主角人设锁定、题材锁定、数值上限、自定义禁令等，由建筑师 agent 在创建书籍时生成，也可手动编辑。
-
-```bash
-inkos genre list                    # 查看所有可用题材
-inkos genre show xuanhuan           # 查看玄幻 profile 详情
-inkos genre create wuxia --name 武侠  # 创建自定义题材
-inkos genre copy xuanhuan           # 复制内置 profile 到项目中定制
-```
-
-### 19 维度连续性审计
-
-审计员对每章草稿进行 19 个维度的检查，维度按题材自动启用：
-
-| 维度 | 说明 | 条件 |
-|------|------|------|
-| OOC 检查 | 角色行为是否符合人设 | 始终 |
-| 时间线检查 | 时间线是否连贯 | 始终 |
-| 设定冲突 | 是否与已建立设定矛盾 | 始终 |
-| 战力崩坏 | 战力是否前后一致 | powerScaling=true |
-| 数值检查 | 资源/数值是否正确结算 | numericalSystem=true |
-| 伏笔检查 | 伏笔是否遗忘或矛盾 | 始终 |
-| 节奏检查 | 节奏是否符合题材预期 | 始终 |
-| 文风检查 | 文风是否一致 | 始终 |
-| 信息越界 | 角色是否知道不该知道的事 | 始终 |
-| 词汇疲劳 | 高疲劳词 + AI 标记词密度 | 始终 |
-| 利益链断裂 | 利益关系是否逻辑完整 | 始终 |
-| 年代考据 | 年代细节是否准确 | eraResearch=true |
-| 配角降智 | 配角是否被降智 | 始终 |
-| 配角工具人化 | 配角是否沦为工具人 | 始终 |
-| 爽点虚化 | 爽点是否落地 | 始终 |
-| 台词失真 | 对话是否符合角色身份 | 始终 |
-| 流水账 | 是否平铺直叙无起伏 | 始终 |
-| 知识库污染 | 是否把设定资料原样搬进正文 | 始终 |
-| 视角一致性 | 视角切换是否有过渡 | 始终 |
-
-玄幻/仙侠启用全部 19 维度（含数值和战力），都市启用 17 维度（含年代考据，无数值/战力），恐怖启用 15 维度（无数值/战力/利益链）。
-
-### 去 AI 味铁律
-
-写手 agent 内置 5 条强制去 AI 味规则：
-
-- 叙述者不替读者下结论 — 行为传达意图，不直说
-- 禁止分析报告式语言 — "核心动机""信息边界"等推理术语禁入正文
-- AI 标记词限频 — 仿佛/忽然/竟然/不禁等每 3000 字不超过 1 次
-- 意象渲染限两轮 — 同一意象第三次出现必须切入新信息
-- 方法论术语隔离 — 六步走心理分析的术语只在内部推理用，不入正文
-
-每个题材还有专属语言铁律（带 ✗→✓ 对比示例），从源头限制 AI 味。
-
 ### 内置创作规则体系
 
-通用层覆盖 6 个维度：
+写手 agent 内置了一套从大量小说创作实践中提炼的规则体系，覆盖 6 个维度：
 
 - **人物塑造铁律** — 角色行为由"过往经历 + 当前利益 + 性格底色"共同驱动；配角必须有独立动机
 - **叙事技法** — Show don't tell、五感代入法、每章结尾必须设置钩子、信息分层植入
@@ -151,7 +78,7 @@ inkos genre copy xuanhuan           # 复制内置 profile 到项目中定制
 - **禁忌清单** — 禁止机械降神、反派降智、主角圣母、特定句式和标点
 - **数值验算铁律** — 每次数值变动必须从账本取值验算，同质资源有衰减公式
 
-每本书还有自己的 `book_rules.md`（写作规则）和 `story_bible.md`（世界观设定），由建筑师 agent 在创建书籍时生成。
+每本书还有自己的 `style_guide.md`（文风指南）和 `story_bible.md`（世界观设定），由建筑师 agent 在创建书籍时生成。
 
 ## 三种使用模式
 
@@ -196,7 +123,7 @@ npm i -g @actalk/inkos
 
 ```bash
 inkos init              # 初始化项目，生成 .env 模板
-# 编辑 .env，填入你的 API Key（支持所有 OpenAI 兼容接口）
+# 编辑 .env，填入你的 API Key（支持 OpenAI / Anthropic / 所有 OpenAI 兼容接口）
 ```
 
 ### 使用
@@ -232,10 +159,6 @@ inkos up                       # 守护进程模式
 | `inkos status` | 项目状态 |
 | `inkos export <id>` | 导出书籍为 txt/md |
 | `inkos radar scan` | 扫描平台趋势 |
-| `inkos genre list` | 列出所有题材 profile |
-| `inkos genre show <id>` | 查看题材 profile 详情 |
-| `inkos genre create <id>` | 创建自定义题材 |
-| `inkos genre copy <id>` | 复制内置 profile 到项目定制 |
 | `inkos config set/show` | 查看/更新配置 |
 | `inkos doctor` | 诊断配置问题 |
 | `inkos up / down` | 启动/停止守护进程 |
@@ -299,12 +222,11 @@ inkos/
 │   │   ├── agents/        # architect, writer, continuity, reviser, radar
 │   │   ├── pipeline/      # runner (原子操作 + 完整管线), agent (tool-use 编排), scheduler
 │   │   ├── state/         # 基于文件的状态管理器
-│   │   ├── llm/           # OpenAI 兼容接口 (流式)
+│   │   ├── llm/           # OpenAI + Anthropic 双 SDK 接口 (流式)
 │   │   ├── notify/        # Telegram, 飞书, 企业微信
-│   │   ├── models/        # Zod schema 校验 (genre-profile, book-rules)
-│   │   └── genres/        # 内置题材 profile (xuanhuan, xianxia, urban, horror, other)
-│   └── cli/               # Commander.js 命令行
-│       └── commands/      # init, book, write, draft, audit, revise, agent, review, genre, status, export...
+│   │   └── models/        # Zod schema 校验
+│   └── cli/               # Commander.js 命令行 (15 条命令)
+│       └── commands/      # init, book, write, draft, audit, revise, agent, review, status, export...
 └── (规划中) studio/        # 网页审阅编辑界面
 ```
 
@@ -314,12 +236,8 @@ TypeScript 单仓库，pnpm workspaces 管理。
 
 - [x] 完整管线（雷达 → 建筑师 → 写手 → 审计 → 修订）
 - [x] 长期记忆 + 连续性审计
-- [x] 内置创作规则体系（~25 条通用规则 + 去AI味铁律）
-- [x] 三层规则架构（通用 → 题材 → 单本书）
-- [x] 5 个内置题材 profile（玄幻、仙侠、都市、恐怖、通用）
-- [x] 19 维度连续性审计（按题材自动启用）
-- [x] 题材管理 CLI（genre list/show/create/copy）
-- [x] CLI 全套命令
+- [x] 内置创作规则体系
+- [x] CLI 全套命令（15 条）
 - [x] 状态快照 + 章节重写
 - [x] 守护进程模式
 - [x] 通知推送（Telegram / 飞书 / 企微）
@@ -331,6 +249,41 @@ TypeScript 单仓库，pnpm workspaces 管理。
 - [ ] 多模型路由（不同 agent 用不同模型）
 - [ ] 自定义 agent 插件系统
 - [ ] 平台格式导出（起点、番茄等）
+
+## 更新日志
+
+### v0.3.0 (2026-03-13)
+
+**三层规则架构** — 之前的创作规则全部硬编码在 writer agent 里，只适配玄幻/爽文。现在拆成三层：通用规则（~25 条） → 题材规范（`genres/*.md`） → 单本书规则（`book_rules.md`）。写都市文不会再出现"同质吞噬衰减公式"，写恐怖不会要求"三章内必须打脸"。
+
+**5 个内置题材 profile** — 玄幻、仙侠、都市、恐怖、通用。每个 profile 定义章节类型、疲劳词、数值/战力/年代开关、节奏规则、爽点类型、审计维度、题材禁忌和语言铁律。支持自定义和覆盖：
+
+```bash
+inkos genre list                      # 查看所有题材
+inkos genre show xuanhuan             # 查看详情
+inkos genre create wuxia --name 武侠   # 创建自定义题材
+inkos genre copy xuanhuan             # 复制内置到项目中定制
+```
+
+**19 维度连续性审计** — 审计从笼统的"检查一致性"升级到 19 个明确维度，按题材自动启用：玄幻全 19 维度（含数值/战力），都市 17 维度（加年代考据），恐怖 15 维度。新增视角一致性、利益链断裂、知识库污染等维度。
+
+**去 AI 味铁律** — 5 条硬性规则：禁止叙述者替读者下结论、禁止分析报告式语言（"核心动机""信息边界"等术语禁入正文）、AI 标记词（仿佛/忽然/竟然）限频每 3000 字 1 次、意象渲染限两轮、方法论术语隔离。每个题材还有专属语言铁律（带 ✗→✓ 示例）。
+
+**多 LLM 提供商支持** — 新增 Anthropic SDK 原生支持。`.env` 中设 `INKOS_LLM_PROVIDER=anthropic` 即可直连 Anthropic API，无需中转。同时支持 OpenAI、所有 OpenAI 兼容接口（中转站、本地模型等）。默认配置从 anthropic 改为 openai，修复了之前 `inkos init` 生成不兼容默认配置的 bug。
+
+```bash
+# OpenAI / 兼容接口
+INKOS_LLM_PROVIDER=openai
+INKOS_LLM_BASE_URL=https://api.openai.com/v1
+INKOS_LLM_MODEL=gpt-4o
+
+# Anthropic 原生
+INKOS_LLM_PROVIDER=anthropic
+INKOS_LLM_BASE_URL=https://api.anthropic.com
+INKOS_LLM_MODEL=claude-sonnet-4-5-20250514
+```
+
+**实测** — 3 个题材各跑 3 章验证：玄幻（数值追踪正常）、都市（无数值审计、年代考据启用）、恐怖（氛围递进、克制叙事）。审计结果确认题材错位消失、词汇疲劳检测 AI 标记词、文风评价从"AI味重"变成"场景落点具体"。
 
 ## 参与贡献
 
