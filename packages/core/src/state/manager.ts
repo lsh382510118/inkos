@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, readdir, stat, unlink } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir, stat, unlink, open } from "node:fs/promises";
 import { join } from "node:path";
 import type { BookConfig } from "../models/book.js";
 import type { ChapterMeta } from "../models/chapter.js";
@@ -7,18 +7,29 @@ export class StateManager {
   constructor(private readonly projectRoot: string) {}
 
   async acquireBookLock(bookId: string): Promise<() => Promise<void>> {
+    await mkdir(this.bookDir(bookId), { recursive: true });
     const lockPath = join(this.bookDir(bookId), ".write.lock");
     try {
-      await stat(lockPath);
-      const lockData = await readFile(lockPath, "utf-8");
-      throw new Error(
-        `Book "${bookId}" is locked by another process (${lockData}). ` +
-          `If this is stale, delete ${lockPath}`,
-      );
+      const handle = await open(lockPath, "wx");
+      try {
+        await handle.writeFile(`pid:${process.pid} ts:${Date.now()}`, "utf-8");
+      } catch (error) {
+        await handle.close().catch(() => undefined);
+        await unlink(lockPath).catch(() => undefined);
+        throw error;
+      }
+      await handle.close();
     } catch (e) {
-      if (e instanceof Error && e.message.includes("is locked")) throw e;
+      const code = (e as NodeJS.ErrnoException | undefined)?.code;
+      if (code === "EEXIST") {
+        const lockData = await readFile(lockPath, "utf-8").catch(() => "pid:unknown ts:unknown");
+        throw new Error(
+          `Book "${bookId}" is locked by another process (${lockData}). ` +
+            `If this is stale, delete ${lockPath}`,
+        );
+      }
+      throw e;
     }
-    await writeFile(lockPath, `pid:${process.pid} ts:${Date.now()}`, "utf-8");
     return async () => {
       try {
         await unlink(lockPath);

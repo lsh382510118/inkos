@@ -346,6 +346,26 @@ describe("StateManager", () => {
       expect(typeof release2).toBe("function");
       await release2();
     });
+
+    it("allows only one concurrent lock claimant", async () => {
+      await mkdir(manager.bookDir("lock-book-4"), { recursive: true });
+
+      const results = await Promise.allSettled([
+        manager.acquireBookLock("lock-book-4"),
+        manager.acquireBookLock("lock-book-4"),
+      ]);
+
+      const fulfilled = results.filter((result) => result.status === "fulfilled");
+      const rejected = results.filter((result) => result.status === "rejected");
+
+      for (const result of fulfilled) {
+        await result.value();
+      }
+
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect(String(rejected[0]?.reason)).toMatch(/is locked/);
+    });
   });
 
   // -------------------------------------------------------------------------

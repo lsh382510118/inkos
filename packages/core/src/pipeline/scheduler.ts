@@ -34,6 +34,8 @@ export class Scheduler {
   private readonly config: SchedulerConfig;
   private tasks: ScheduledTask[] = [];
   private running = false;
+  private writeCycleInFlight: Promise<void> | null = null;
+  private radarScanInFlight: Promise<void> | null = null;
 
   // Quality gate tracking (per book)
   private consecutiveFailures = new Map<string, number>();
@@ -57,7 +59,7 @@ export class Scheduler {
     this.running = true;
 
     // Run write cycle immediately on start, then schedule
-    await this.runWriteCycle();
+    await this.triggerWriteCycle();
 
     // Schedule recurring write cycle
     const writeCycleMs = this.cronToMs(this.config.writeCron);
@@ -66,7 +68,7 @@ export class Scheduler {
       intervalMs: writeCycleMs,
     };
     writeTask.timer = setInterval(() => {
-      this.runWriteCycle().catch((e) => {
+      this.triggerWriteCycle().catch((e) => {
         this.config.onError?.("scheduler", e as Error);
       });
     }, writeCycleMs);
@@ -79,7 +81,7 @@ export class Scheduler {
       intervalMs: radarMs,
     };
     radarTask.timer = setInterval(() => {
-      this.runRadarScan().catch((e) => {
+      this.triggerRadarScan().catch((e) => {
         this.config.onError?.("radar", e as Error);
       });
     }, radarMs);
@@ -96,6 +98,36 @@ export class Scheduler {
 
   get isRunning(): boolean {
     return this.running;
+  }
+
+  private async triggerWriteCycle(): Promise<void> {
+    if (this.writeCycleInFlight) {
+      this.log?.warn("Write cycle still running, skipping overlapping tick");
+      return;
+    }
+
+    const cycle = this.runWriteCycle().finally(() => {
+      if (this.writeCycleInFlight === cycle) {
+        this.writeCycleInFlight = null;
+      }
+    });
+    this.writeCycleInFlight = cycle;
+    await cycle;
+  }
+
+  private async triggerRadarScan(): Promise<void> {
+    if (this.radarScanInFlight) {
+      this.log?.warn("Radar scan still running, skipping overlapping tick");
+      return;
+    }
+
+    const scan = this.runRadarScan().finally(() => {
+      if (this.radarScanInFlight === scan) {
+        this.radarScanInFlight = null;
+      }
+    });
+    this.radarScanInFlight = scan;
+    await scan;
   }
 
   /** Resume a paused book. */
