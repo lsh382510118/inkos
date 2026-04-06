@@ -72,4 +72,25 @@ describe("interaction natural-language router", () => {
       mode: "manual",
     });
   });
+
+  it("maps slash commands for direct control", () => {
+    expect(routeNaturalLanguageIntent("/write", { activeBookId: "harbor" })).toEqual({
+      intent: "write_next",
+      bookId: "harbor",
+    });
+    expect(routeNaturalLanguageIntent("/mode auto", { activeBookId: "harbor" })).toEqual({
+      intent: "switch_mode",
+      mode: "auto",
+    });
+    expect(routeNaturalLanguageIntent("/rewrite 3", { activeBookId: "harbor" })).toEqual({
+      intent: "rewrite_chapter",
+      bookId: "harbor",
+      chapterNumber: 3,
+    });
+    expect(routeNaturalLanguageIntent("/focus bring it back to the old case", { activeBookId: "harbor" })).toEqual({
+      intent: "update_focus",
+      bookId: "harbor",
+      instruction: "bring it back to the old case",
+    });
+  });
 });

@@ -19,10 +19,25 @@ export function routeNaturalLanguageIntent(
     };
   }
 
+  if (/^\/write$/i.test(trimmed)) {
+    return {
+      intent: "write_next",
+      ...(bookId ? { bookId } : {}),
+    };
+  }
+
   if (/^(pause|pause this book|暂停|暂停这本书)$/i.test(trimmed)) {
     return {
       intent: "pause_book",
       ...(bookId ? { bookId } : {}),
+    };
+  }
+
+  const modeCommand = trimmed.match(/^\/mode\s+(auto|semi|manual)$/i);
+  if (modeCommand) {
+    return {
+      intent: "switch_mode",
+      mode: modeCommand[1]!.toLowerCase() as "auto" | "semi" | "manual",
     };
   }
 
@@ -44,6 +59,24 @@ export function routeNaturalLanguageIntent(
     return {
       intent: "switch_mode",
       mode: "manual",
+    };
+  }
+
+  const slashRewrite = trimmed.match(/^\/rewrite\s+(\d+)$/i);
+  if (slashRewrite) {
+    return {
+      intent: "rewrite_chapter",
+      ...(bookId ? { bookId } : {}),
+      chapterNumber: parseInt(slashRewrite[1]!, 10),
+    };
+  }
+
+  const slashFocus = trimmed.match(/^\/focus\s+(.+)$/i);
+  if (slashFocus) {
+    return {
+      intent: "update_focus",
+      ...(bookId ? { bookId } : {}),
+      instruction: slashFocus[1]!.trim(),
     };
   }
 
