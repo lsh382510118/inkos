@@ -107,16 +107,30 @@ Core blurb principle:
     const volumeOutlinePrompt = resolvedLanguage === "en"
       ? `Volume plan. For each volume include: title, chapter range, core conflict, key turning points, and payoff goal
 
-### Golden First Three Chapters Rule
+### Golden First Five Chapters Rule (English platforms: paywall at ch6-8)
 - Chapter 1: throw the core conflict immediately; no large background dump
 - Chapter 2: show the core edge / ability / leverage that answers Chapter 1's pressure
-- Chapter 3: establish the first concrete short-term goal that gives readers a reason to continue`
+- Chapter 3: establish the first concrete short-term goal
+- Chapter 4: deliver the first MAJOR payoff — reward reader investment
+- Chapter 5: raise the stakes before paywall — strongest cliffhanger yet
+
+### Emotional Wave Design
+- Each volume must have a tension curve: build → peak → release → bigger build
+- Never plan 3+ consecutive high-tension chapters without a breathing chapter
+- Never plan 3+ consecutive quiet chapters without a complication or revelation
+- Daily/transition chapters must serve the main plot (plant hooks, advance relationships)`
       : `卷纲规划，每卷包含：卷名、章节范围、核心冲突、关键转折、收益目标
 
 ### 黄金三章法则（前三章必须遵循）
 - 第1章：抛出核心冲突（主角立即面临困境/危机/选择），禁止大段背景灌输
 - 第2章：展示金手指/核心能力（主角如何应对第1章的困境），让读者看到爽点预期
-- 第3章：明确短期目标（主角确立第一个具体可达成的目标），给读者追读理由`;
+- 第3章：明确短期目标（主角确立第一个具体可达成的目标），给读者追读理由
+
+### 情绪波形设计
+- 每卷必须有张力曲线：蓄压→爆发→释放→更大蓄压
+- 不得连续规划3章以上的高压章节而没有喘息章
+- 不得连续规划3章以上的平淡章节而没有冲突或揭秘
+- 日常/过渡章必须为主线服务（埋伏笔、推关系、建反差），禁止纯填充`;
 
     const bookRulesPrompt = resolvedLanguage === "en"
       ? `Generate book_rules.md as YAML frontmatter plus narrative guidance:
