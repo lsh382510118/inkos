@@ -51,7 +51,7 @@ describe("buildWriterSystemPrompt", () => {
     expect(prompt).toContain("卷纲是默认规划");
     // Writing methodology is now always injected regardless of mode
     expect(prompt).toContain("六步走人物心理分析");
-    expect(prompt).toContain("黄金三章");
+    expect(prompt).toContain("黄金3章");
   });
 
   it("uses target-range wording when a length spec is provided", () => {

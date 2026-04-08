@@ -69,7 +69,7 @@ export function buildWriterSystemPrompt(
         buildReaderPsychologyMethod(),
         buildEmotionalPacingMethod(),
         buildImmersionTechniques(),
-        buildGoldenChaptersRules(chapterNumber),
+        buildGoldenChaptersRules(chapterNumber, isEnglish ? "en" : "zh"),
         bookRules?.enableFullCastTracking ? buildFullCastTracking() : "",
         buildGenreRules(genreProfile, genreBody),
         buildProtagonistRules(bookRules),
@@ -363,10 +363,12 @@ function buildImmersionTechniques(): string {
 // 黄金三章（前3章特殊指令）
 // ---------------------------------------------------------------------------
 
-function buildGoldenChaptersRules(chapterNumber?: number): string {
-  if (chapterNumber === undefined || chapterNumber > 3) return "";
+function buildGoldenChaptersRules(chapterNumber?: number, language?: string): string {
+  const isEnglish = language === "en";
+  const goldenLimit = isEnglish ? 5 : 3;
+  if (chapterNumber === undefined || chapterNumber > goldenLimit) return "";
 
-  const chapterRules: Record<number, string> = {
+  const zhRules: Record<number, string> = {
     1: `### 第一章：抛出核心冲突
 - 开篇直接进入冲突场景，禁止用背景介绍/世界观设定开头
 - 第一段必须有动作或对话，让读者"看到"画面
@@ -374,14 +376,12 @@ function buildGoldenChaptersRules(chapterNumber?: number): string {
 - 主角身份/外貌/背景通过行动自然带出，禁止资料卡式罗列
 - 本章结束前，核心矛盾必须浮出水面
 - 一句对话能交代的信息不要用一段叙述，角色身份、性格、地位都可以从一句有特色的台词中带出`,
-
     2: `### 第二章：展现金手指/核心能力
 - 主角的核心优势（金手指/特殊能力/信息差等）必须在本章初现
 - 金手指的展现必须通过具体事件，不能只是内心独白"我获得了XX"
 - 开始建立"主角有什么不同"的读者认知
 - 第一个小爽点应在本章出现
 - 继续收紧核心冲突，不引入新支线`,
-
     3: `### 第三章：明确短期目标
 - 主角的第一个阶段性目标必须在本章确立
 - 目标必须具体可衡量（打败某人/获得某物/到达某处），不能是抽象的"变强"
@@ -389,16 +389,56 @@ function buildGoldenChaptersRules(chapterNumber?: number): string {
 - 章尾钩子要足够强，这是读者决定是否继续追读的关键章`,
   };
 
-  return `## 黄金三章特殊指令（当前第${chapterNumber}章）
+  const enRules: Record<number, string> = {
+    1: `### Chapter 1: Drop into conflict
+- Open with action or dialogue — no worldbuilding preamble
+- First paragraph must show a scene, not tell backstory
+- Max 1-2 locations, max 3 characters
+- Protagonist identity revealed through behavior, not info-dump
+- Core conflict must surface before chapter end`,
+    2: `### Chapter 2: Reveal the edge
+- The protagonist's unique advantage (power/secret/skill) must appear
+- Show it through a concrete event, not internal monologue ("I gained X")
+- First small payoff/satisfaction beat should land here
+- Tighten the core conflict, don't open new subplots`,
+    3: `### Chapter 3: Lock in the short-term goal
+- A specific, measurable goal must be established (defeat someone / obtain something / reach somewhere)
+- Reader must be able to say "I know what the protagonist wants next"
+- End with a strong hook — this is the make-or-break chapter for retention`,
+    4: `### Chapter 4: First major payoff
+- Deliver the first BIG satisfaction beat — reader has invested 3 chapters, reward them
+- Protagonist uses their edge to achieve something meaningful (not just survive)
+- Raise the emotional stakes: what the protagonist stands to LOSE becomes clear
+- Introduce or deepen a relationship that matters (ally, rival, love interest)`,
+    5: `### Chapter 5: Raise the stakes before paywall
+- New threat or complication that makes the goal harder (new antagonist, betrayal, revelation)
+- The world expands: reader sees there's a bigger game beyond the initial conflict
+- End on the strongest cliffhanger yet — reader hits paywall after this chapter
+- They must feel "I CANNOT stop here" — this is the conversion chapter`,
+  };
 
-开篇三章决定读者是否追读。遵循以下强制规则：
+  const rules = isEnglish ? enRules : zhRules;
+  const header = isEnglish
+    ? `## Golden ${goldenLimit} Chapters — Chapter ${chapterNumber}
+
+The opening ${goldenLimit} chapters determine whether readers stay or leave. Before the paywall (ch6-8), every chapter must hook harder than the last.
+
+- Start from an explosion, not the first brick
+- No info-dumps: worldbuilding reveals through action
+- Each chapter: 1 storyline, max 3 characters
+- Lead with strong emotion: injustice, danger, mystery, desire`
+    : `## 黄金${goldenLimit}章特殊指令（当前第${chapterNumber}章）
+
+开篇${goldenLimit}章决定读者是否追读。遵循以下强制规则：
 
 - 开篇不要从第一块砖头开始砌楼——从炸了一栋楼开始写
 - 禁止信息轰炸：世界观、力量体系等设定随剧情自然揭示
 - 每章聚焦1条故事线，人物数量控制在3个以内
-- 强情绪优先：利用读者共情（亲情纽带、不公待遇、被低估）快速建立代入感
+- 强情绪优先：利用读者共情（亲情纽带、不公待遇、被低估）快速建立代入感`;
 
-${chapterRules[chapterNumber] ?? ""}`;
+  return `${header}
+
+${rules[chapterNumber] ?? ""}`;
 }
 
 // ---------------------------------------------------------------------------
