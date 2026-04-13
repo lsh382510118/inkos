@@ -80,9 +80,44 @@ const lightPalette: ThemePalette = {
   roleSystem: "#5c4a80",
 };
 
-const palette = detectTerminalTheme() === "light" ? lightPalette : darkPalette;
+// Terminal.app: use basic 16-color ANSI names to avoid 24-bit escape sequences
+// that can trigger CoreGraphics crashes with CJK text.
+const appleTerminalDarkPalette: ThemePalette = {
+  warmAccent: "yellow",
+  warmMuted: "gray",
+  warmReply: "cyan",
+  warmBorder: "gray",
+  statusSuccess: "green",
+  statusError: "red",
+  statusActive: "yellow",
+  statusIdle: "gray",
+  roleUser: "white",
+  roleSystem: "magenta",
+};
 
-// Named exports for backward compatibility
+const appleTerminalLightPalette: ThemePalette = {
+  warmAccent: "yellow",
+  warmMuted: "gray",
+  warmReply: "blue",
+  warmBorder: "gray",
+  statusSuccess: "green",
+  statusError: "red",
+  statusActive: "yellow",
+  statusIdle: "gray",
+  roleUser: "black",
+  roleSystem: "magenta",
+};
+
+function resolvePalette(): ThemePalette {
+  const theme = detectTerminalTheme();
+  if (isAppleTerminal) {
+    return theme === "light" ? appleTerminalLightPalette : appleTerminalDarkPalette;
+  }
+  return theme === "light" ? lightPalette : darkPalette;
+}
+
+const palette = resolvePalette();
+
 export const WARM_ACCENT = palette.warmAccent;
 export const WARM_MUTED = palette.warmMuted;
 export const WARM_REPLY = palette.warmReply;
