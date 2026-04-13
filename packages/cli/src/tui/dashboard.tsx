@@ -432,27 +432,27 @@ function ConversationRow(props: { readonly row: DashboardMessageRow }): React.JS
 
   if (role === "user") {
     return (
-      <Box marginBottom={1} columnGap={1}>
-        <Text color={ROLE_USER}>│</Text>
-        <Text color={WARM_REPLY}>{content}</Text>
+      <Box flexDirection="row" marginBottom={1}>
+        <Box minWidth={2}><Text color={ROLE_USER}>│</Text></Box>
+        <Box flexDirection="column" flexShrink={1}><Text color={ROLE_USER}>{content}</Text></Box>
       </Box>
     );
   }
 
   if (role === "system") {
     return (
-      <Box marginBottom={1} columnGap={1}>
-        <Text color={ROLE_SYSTEM}>·</Text>
-        <Text color={ROLE_SYSTEM}>{content}</Text>
+      <Box flexDirection="row" marginBottom={1}>
+        <Box minWidth={2}><Text color={ROLE_SYSTEM}>·</Text></Box>
+        <Box flexDirection="column" flexShrink={1}><Text color={ROLE_SYSTEM}>{content}</Text></Box>
       </Box>
     );
   }
 
   // assistant — render markdown (bold, tables, code, etc.)
   return (
-    <Box marginBottom={1} columnGap={1}>
-      <Text color={WARM_ACCENT}>◆</Text>
-      <Text color={WARM_REPLY}>{renderMarkdown(content)}</Text>
+    <Box flexDirection="row" marginBottom={1}>
+      <Box minWidth={2}><Text color={WARM_ACCENT}>◆</Text></Box>
+      <Box flexDirection="column" flexShrink={1}><Text color={WARM_REPLY}>{renderMarkdown(content)}</Text></Box>
     </Box>
   );
 }
