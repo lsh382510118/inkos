@@ -79,7 +79,10 @@ export const ChapterHookMoveSchema = z.object({
 });
 export type ChapterHookMove = z.infer<typeof ChapterHookMoveSchema>;
 
-export const CyclePhaseSchema = z.enum(["蓄压", "升级", "爆发", "后效"]);
+export const CyclePhaseSchema = z.enum([
+  "蓄压", "升级", "爆发", "后效",
+  "build-up", "escalation", "climax", "aftermath",
+]);
 export type CyclePhase = z.infer<typeof CyclePhaseSchema>;
 
 export const ChapterBriefSchema = z.object({

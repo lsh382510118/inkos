@@ -285,7 +285,7 @@ export class PlannerAgent extends BaseAgent {
     const recentSummaries = parseChapterSummariesMarkdown(input.chapterSummaries)
       .filter((summary) => summary.chapter < input.chapterNumber)
       .sort((left, right) => left.chapter - right.chapter)
-      .slice(-4);
+      .slice(-5);
     const cadenceRows = recentSummaries.map((summary) => ({
       chapter: summary.chapter,
       title: summary.title,
@@ -963,6 +963,7 @@ export class PlannerAgent extends BaseAgent {
         "## Chapter Brief",
         `- chapterType: ${brief.chapterType}`,
         `- isGoldenOpening: ${brief.isGoldenOpening ? "true" : "false"}`,
+        ...(brief.cyclePhase ? [`- cyclePhase: ${brief.cyclePhase}`] : []),
         `- dormantReason: ${brief.dormantReason ?? "(none)"}`,
         "",
         "### Beat Outline",

@@ -116,7 +116,7 @@ but to decide that this chapter is written *right* — making it a proper micro-
 9. Supporting characters have purpose: they drive plot, not fill scenes. Show their B-side only when needed.
 10. Payoffs have costs; knife-twists leave warmth.
 11. Rhythm is driven by objective cycles, not mood buckets. Every 3-5 chapters form a mini-arc:
-    蓄压 (build pressure — new obstacles, new info) → 升级 (escalate — raise stakes, widen gaps) → 爆发 (payoff — deliver on promises, exceed expectations) → 后效 (aftermath — write change: relationships shifted, status changed, costs visible).
+    build-up (new obstacles, new info) → escalation (raise stakes, widen gaps) → climax (deliver on promises, exceed expectations) → aftermath (write change: relationships shifted, status changed, costs visible).
     Don't rotate mechanically — if the story needs consecutive pressure-building, do it. But there must be at least one payoff within every 5 chapters.
 
 ## Opening types (toolbox, not mandatory)
@@ -281,6 +281,6 @@ const EN_OUTPUT_REQUIREMENTS = `Produce ChapterBrief JSON following the core pri
   Each object must have hookId (string), movement (string), targetEffect (string).
   Omit other active hooks; explain in dormantReason why they stay dormant.
 - propsAndSetting (string[]): People/items/locations on-page, as a flat string array.
-- cyclePhase (string, optional): This chapter's position in the mini objective cycle — "蓄压" / "升级" / "爆发" / "后效"
+- cyclePhase (string, optional): This chapter's position in the mini objective cycle — "build-up" / "escalation" / "climax" / "aftermath"
 - dormantReason (string, optional): Why other hooks stay dormant.
 - isGoldenOpening (boolean): true for first 5 chapters, false otherwise.`;

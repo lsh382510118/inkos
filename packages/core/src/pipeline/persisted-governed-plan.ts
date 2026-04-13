@@ -41,6 +41,16 @@ export async function loadPersistedPlan(
       return null;
     }
 
+    // Restore structured directives (mood, scene, arc, title) from persisted markdown
+    const directiveLines = readIntentList(sections, "Structured Directives");
+    const directiveMap = new Map<string, string>();
+    for (const line of directiveLines) {
+      const sep = line.indexOf(":");
+      if (sep > 0) {
+        directiveMap.set(line.slice(0, sep).trim(), line.slice(sep + 1).trim());
+      }
+    }
+
     return {
       intent: ChapterIntentSchema.parse({
         chapter: chapterNumber,
@@ -49,6 +59,10 @@ export async function loadPersistedPlan(
         mustKeep: readIntentList(sections, "Must Keep"),
         mustAvoid: readIntentList(sections, "Must Avoid"),
         styleEmphasis: readIntentList(sections, "Style Emphasis"),
+        sceneDirective: directiveMap.get("scene"),
+        arcDirective: directiveMap.get("arc"),
+        moodDirective: directiveMap.get("mood"),
+        titleDirective: directiveMap.get("title"),
         conflicts,
       }),
       brief,
@@ -167,11 +181,16 @@ function parsePersistedChapterBrief(
     return undefined;
   }
 
+  const cyclePhaseRaw = scalarMap.get("cyclePhase");
+  const validCyclePhases = new Set(["蓄压", "升级", "爆发", "后效", "build-up", "escalation", "climax", "aftermath"]);
+  const cyclePhase = cyclePhaseRaw && validCyclePhases.has(cyclePhaseRaw) ? cyclePhaseRaw : undefined;
+
   return ChapterBriefSchema.parse({
     chapter: chapterNumber,
     goal: readIntentScalar(sections, "Goal") ?? scalarMap.get("goal"),
     chapterType: scalarMap.get("chapterType") ?? "unspecified",
     isGoldenOpening: scalarMap.get("isGoldenOpening") === "true",
+    cyclePhase,
     beatOutline,
     hookPlan,
     propsAndSetting,
