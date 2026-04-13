@@ -47,6 +47,14 @@ export interface TuiCopy {
     readonly system: string;
   };
   readonly activity: Record<"thinking" | "checking" | "writing" | "reviewing" | "updating", string>;
+  readonly stageLabels: {
+    readonly completed: string;
+    readonly failed: string;
+    readonly blocked: string;
+    readonly waitingHuman: string;
+    readonly pausedByUser: string;
+    readonly readyToContinue: string;
+  };
   readonly depthLabels: Record<ChatDepth, string>;
   readonly results: {
     readonly modeSwitched: (mode: string) => string;
@@ -111,6 +119,14 @@ const ZH_CN: TuiCopy = {
     writing: "写作中",
     reviewing: "审阅中",
     updating: "更新中",
+  },
+  stageLabels: {
+    completed: "已完成",
+    failed: "失败",
+    blocked: "已阻塞",
+    waitingHuman: "等待你的决定",
+    pausedByUser: "已由用户暂停",
+    readyToContinue: "可继续执行",
   },
   depthLabels: {
     light: "轻量",
@@ -192,6 +208,14 @@ const EN: TuiCopy = {
     reviewing: "reviewing",
     updating: "updating",
   },
+  stageLabels: {
+    completed: "completed",
+    failed: "failed",
+    blocked: "blocked",
+    waitingHuman: "waiting for your decision",
+    pausedByUser: "paused by user",
+    readyToContinue: "ready to continue",
+  },
   depthLabels: {
     light: "light",
     normal: "normal",
@@ -251,16 +275,18 @@ export function normalizeStageLabel(label: string, copy: TuiCopy): string {
     [/^writing\b/i, copy.activity.writing],
     [/^reviewing\b/i, copy.activity.reviewing],
     [/^updating\b/i, copy.activity.updating],
-    [/^completed\b/i, copy.locale === "en" ? "completed" : "已完成"],
-    [/^failed\b/i, copy.locale === "en" ? "failed" : "失败"],
-    [/^blocked\b/i, copy.locale === "en" ? "blocked" : "已阻塞"],
-    [/^waiting_human\b/i, copy.locale === "en" ? "waiting for your decision" : "等待你的决定"],
-    [/^paused by user\b/i, copy.locale === "en" ? "paused by user" : "已由用户暂停"],
-    [/^ready to continue\b/i, copy.locale === "en" ? "ready to continue" : "可继续执行"],
+    [/^completed\b/i, copy.stageLabels.completed],
+    [/^failed\b/i, copy.stageLabels.failed],
+    [/^blocked\b/i, copy.stageLabels.blocked],
+    [/^waiting_human\b/i, copy.stageLabels.waitingHuman],
+    [/^paused by user\b/i, copy.stageLabels.pausedByUser],
+    [/^ready to continue\b/i, copy.stageLabels.readyToContinue],
   ];
 
   for (const [pattern, value] of replacements) {
     if (pattern.test(label)) {
+      // For English, keep the original label (already in English);
+      // for other locales, use the translated value
       return copy.locale === "en" ? label : value;
     }
   }

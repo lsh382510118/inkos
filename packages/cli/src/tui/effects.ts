@@ -202,15 +202,30 @@ export async function animateStartup(version: string, projectName: string, bookT
     // Animate ASCII logo line by line
     for (let i = 0; i < ASCII_LOGO.length; i++) {
       const line = ASCII_LOGO[i]!;
-      // Gradient: top lines brighter, bottom lines dimmer
       const shade = i < 2 ? brightCyan : i < 4 ? cyan : dim + cyan;
       process.stdout.write(`  ${c(line, shade)}\n`);
       await sleep(40);
     }
 
-    // Version + tagline below logo
+    // Version line
     console.log(c(`  v${version}`, dim));
-    await sleep(150);
+    await sleep(100);
+
+    // Project info strip
+    const infoParts = [
+      c("◇", cyan) + " " + c(projectName, white, bold),
+    ];
+    if (bookTitle) {
+      infoParts.push(c("◇", cyan) + " " + c(bookTitle, brightCyan));
+    }
+    if (modelInfo?.model && modelInfo.model !== "unknown") {
+      infoParts.push(c("◇", cyan) + " " + c(`${modelInfo.model} (${modelInfo.provider})`, dim));
+    }
+    console.log();
+    for (const part of infoParts) {
+      console.log(`  ${part}`);
+      await sleep(60);
+    }
 
     process.stdout.write(showCursor);
   } else {
@@ -310,7 +325,7 @@ export function intentToBadge(intent: string, locale: TuiLocale = resolveTuiLoca
   };
   const label = labels[intent as keyof typeof labels] ?? ` ${intent} `;
   const bg = backgrounds[intent] ?? bgGray;
-  return badge(label!, bg!);
+  return badge(label, bg);
 }
 
 /* ── Intent to spinner theme ── */
@@ -345,9 +360,9 @@ export function printStyledHelp(): void {
   for (const section of sections) {
     console.log(`  ${c(section.title, bold, cyan)}`);
     for (const [cmd, desc] of section.commands) {
-      const cmdStr = c(cmd!, green);
-      const descStr = c(desc!, dim);
-      const padding = " ".repeat(Math.max(1, 24 - stripAnsi(cmd!).length));
+      const cmdStr = c(cmd, green);
+      const descStr = c(desc, dim);
+      const padding = " ".repeat(Math.max(1, 24 - stripAnsi(cmd).length));
       console.log(`    ${cmdStr}${padding}${descStr}`);
     }
     console.log();
@@ -401,10 +416,10 @@ export function formatStyledStatusLines(
     waiting_human: brightYellow,
   };
   const statusColor = statusColors[params.status] ?? gray;
-  const modeLabel = locale === "en" ? "Mode" : "模式";
-  const bookLabel = locale === "en" ? "Book" : "作品";
-  const statusLabel = locale === "en" ? "Status" : "状态";
-  const recentLabel = locale === "en" ? "Recent" : "最近";
+  const modeLabel = copy.labels.mode;
+  const bookLabel = copy.labels.book;
+  const statusLabel = copy.labels.stage;
+  const recentLabel = copy.labels.recent;
   const lines = [
     `  ${c("◇", cyan)} ${c(modeLabel, gray)}     ${c(formatModeLabel(params.mode, copy), modeColor, bold)}`,
     `  ${c("◇", cyan)} ${c(bookLabel, gray)}     ${params.bookId ? c(params.bookId, brightWhite) : c(copy.labels.none, dim)}`,

@@ -25,7 +25,11 @@ import {
   getSlashSuggestions,
   SLASH_COMMANDS,
 } from "./slash-autocomplete.js";
-import { WARM_ACCENT, WARM_BORDER, WARM_MUTED, WARM_REPLY } from "./theme.js";
+import {
+  WARM_ACCENT, WARM_BORDER, WARM_MUTED, WARM_REPLY,
+  STATUS_SUCCESS, STATUS_ERROR, STATUS_ACTIVE, STATUS_IDLE,
+  ROLE_USER, ROLE_SYSTEM,
+} from "./theme.js";
 
 export interface InkTuiDashboardProps {
   readonly locale: TuiLocale;
@@ -77,38 +81,48 @@ export function InkTuiDashboard(props: InkTuiDashboardProps): React.JSX.Element 
   const activeAccent = props.isSubmitting ? WARM_ACCENT : statusColor(model.executionStatus);
   const composer = renderComposerDisplay(props.inputValue, model.composerPlaceholder, props.showComposerCursor ?? false);
 
+  const separatorWidth = Math.max(20, (process.stdout.columns ?? 60) - 8);
+  const thinRule = "─".repeat(separatorWidth);
+
   return (
     <Box flexDirection="column" width="100%" paddingX={2}>
+      {/* Header bar */}
       <Text color={WARM_MUTED}>{model.headerLine}</Text>
+      <Text color={WARM_BORDER}>{thinRule}</Text>
 
+      {/* Conversation area */}
       <Box flexDirection="column" marginTop={1} flexGrow={1}>
         {model.messageRows.length > 0 ? (
           model.messageRows.map((row) => <ConversationRow key={row.key} row={row} />)
         ) : (
-          <MutedText>{copy.composer.emptyConversation}</MutedText>
+          <Box marginY={1}>
+            <Text color={WARM_MUTED} italic>  {copy.composer.emptyConversation}</Text>
+          </Box>
         )}
       </Box>
 
+      {/* Status strip */}
       <Box flexDirection="column" marginTop={1}>
-        <Text color={activeAccent}>
+        <Text color={WARM_BORDER}>{thinRule}</Text>
+        <Box marginTop={1}>
           <ExecutionBadge status={model.executionStatus} color={activeAccent} />
-          {" "}
-          {model.statusPrimaryLine}
-        </Text>
-        <Text color={model.errorText ? "red" : props.isSubmitting ? WARM_ACCENT : WARM_MUTED}>
-          {model.statusSecondaryLine}
+          <Text color={activeAccent}> {model.statusPrimaryLine}</Text>
+        </Box>
+        <Text color={model.errorText ? STATUS_ERROR : props.isSubmitting ? WARM_ACCENT : WARM_MUTED}>
+          {"  " + model.statusSecondaryLine}
         </Text>
 
+        {/* Composer input */}
         <Box
           marginTop={1}
           flexDirection="column"
           width="100%"
           borderStyle="round"
-          borderColor={props.isSubmitting ? WARM_ACCENT : WARM_BORDER}
+          borderColor={props.isSubmitting ? STATUS_ACTIVE : WARM_BORDER}
           paddingX={1}
         >
           <Box>
-            <Text color={props.isSubmitting ? WARM_ACCENT : WARM_ACCENT} bold>
+            <Text color={props.isSubmitting ? STATUS_ACTIVE : WARM_ACCENT} bold>
               ›{" "}
             </Text>
             {composer.textBeforeCursor ? (
@@ -117,7 +131,7 @@ export function InkTuiDashboard(props: InkTuiDashboardProps): React.JSX.Element 
               </Text>
             ) : null}
             {composer.cursor ? (
-              <Text color={props.isSubmitting ? WARM_ACCENT : WARM_ACCENT}>
+              <Text color={props.isSubmitting ? STATUS_ACTIVE : WARM_ACCENT}>
                 {composer.cursor}
               </Text>
             ) : null}
@@ -127,18 +141,26 @@ export function InkTuiDashboard(props: InkTuiDashboardProps): React.JSX.Element 
               </Text>
             ) : null}
           </Box>
-          <Text color={props.isSubmitting ? WARM_ACCENT : WARM_MUTED}>
-            {model.composerStatus} • {model.composerHelper}
-          </Text>
+          <Box>
+            <Text color={props.isSubmitting ? STATUS_ACTIVE : WARM_MUTED}>
+              {model.composerStatus}
+            </Text>
+            <Text color={WARM_BORDER}> │ </Text>
+            <Text color={WARM_MUTED}>{model.composerHelper}</Text>
+          </Box>
+
+          {/* Slash command suggestions */}
           {props.slashSuggestions && props.slashSuggestions.length > 0 ? (
-            <Box flexDirection="column" marginTop={1}>
-              {props.slashSuggestions.slice(0, 5).map((suggestion, index) => {
+            <Box flexDirection="column" marginTop={1} borderTop borderColor={WARM_BORDER}>
+              {props.slashSuggestions.slice(0, 6).map((suggestion, index) => {
                 const isSelected = index === (props.selectedSlashIndex ?? 0);
                 return (
-                  <Text key={suggestion} color={isSelected ? WARM_ACCENT : WARM_MUTED}>
-                    {isSelected ? "› " : "  "}
-                    {suggestion}
-                  </Text>
+                  <Box key={suggestion}>
+                    <Text color={isSelected ? WARM_ACCENT : WARM_BORDER}>{isSelected ? "› " : "  "}</Text>
+                    <Text color={isSelected ? WARM_REPLY : WARM_MUTED} bold={isSelected}>
+                      {suggestion}
+                    </Text>
+                  </Box>
                 );
               })}
             </Box>
@@ -407,29 +429,64 @@ export function InkTuiApp(props: InkTuiAppProps): React.JSX.Element {
 }
 
 function ConversationRow(props: { readonly row: DashboardMessageRow }): React.JSX.Element {
-  if (props.row.role === "user") {
+  const { role, content, label } = props.row;
+
+  if (role === "user") {
     return (
       <Box marginBottom={1}>
-        <Text color="gray">│ {props.row.content}</Text>
+        <Text color={ROLE_USER}>│ </Text>
+        <Text color={WARM_REPLY}>{content}</Text>
       </Box>
     );
   }
 
+  if (role === "system") {
+    return (
+      <Box marginBottom={1}>
+        <Text color={ROLE_SYSTEM}>· </Text>
+        <Text color={ROLE_SYSTEM}>{content}</Text>
+      </Box>
+    );
+  }
+
+  // assistant
   return (
     <Box marginBottom={1}>
-      <Text color={messageColor(props.row.role)}>
-        {props.row.role === "assistant" ? props.row.content : `${props.row.label}  ${props.row.content}`}
-      </Text>
+      <Text color={WARM_ACCENT}>◆ </Text>
+      <Text color={WARM_REPLY}>{content}</Text>
     </Box>
   );
 }
 
 function ExecutionBadge(props: { readonly status: string; readonly color?: string }): React.JSX.Element {
+  const icon = statusIcon(props.status);
   return (
     <Text color={props.color ?? statusColor(props.status)} bold>
-      ●
+      {icon}
     </Text>
   );
+}
+
+function statusIcon(status: string): string {
+  switch (status) {
+    case "completed":
+      return "✓";
+    case "failed":
+      return "✗";
+    case "blocked":
+    case "waiting_human":
+      return "◈";
+    case "writing":
+      return "✎";
+    case "planning":
+    case "composing":
+      return "◇";
+    case "repairing":
+    case "persisting":
+      return "◉";
+    default:
+      return "●";
+  }
 }
 
 function MutedText(props: { readonly children: React.ReactNode }): React.JSX.Element {
@@ -452,9 +509,9 @@ function messageColor(role: DashboardMessageRow["role"]): string {
 function statusColor(status: string): string {
   switch (status) {
     case "completed":
-      return WARM_REPLY;
+      return STATUS_SUCCESS;
     case "failed":
-      return "red";
+      return STATUS_ERROR;
     case "blocked":
     case "waiting_human":
       return WARM_ACCENT;
@@ -463,8 +520,8 @@ function statusColor(status: string): string {
     case "planning":
     case "composing":
     case "persisting":
-      return WARM_ACCENT;
+      return STATUS_ACTIVE;
     default:
-      return WARM_MUTED;
+      return STATUS_IDLE;
   }
 }
