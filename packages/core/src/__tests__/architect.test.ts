@@ -466,6 +466,175 @@ describe("ArchitectAgent", () => {
     expect(result.pendingHooks).toContain("| H01 | 1 | mystery | open | 0 | 10章 | 中程 | 初始钩子 |");
   });
 
+  it("falls back to default current_state when section is missing from LLM output", async () => {
+    const agent = new ArchitectAgent({
+      client: {
+        provider: "openai",
+        apiFormat: "chat",
+        stream: false,
+        defaults: {
+          temperature: 0.7,
+          maxTokens: 4096,
+          thinkingBudget: 0, maxTokensCap: null,
+          extra: {},
+        },
+      },
+      model: "test-model",
+      projectRoot: process.cwd(),
+    });
+
+    const book: BookConfig = {
+      id: "missing-state-book",
+      title: "缺失状态卡",
+      platform: "other",
+      genre: "other",
+      status: "active",
+      targetChapters: 20,
+      chapterWordCount: 2200,
+      language: "zh",
+      createdAt: "2026-04-15T00:00:00.000Z",
+      updatedAt: "2026-04-15T00:00:00.000Z",
+    };
+
+    vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValue({
+        content: [
+          "=== SECTION: story_bible ===",
+          "# 故事圣经",
+          "",
+          "=== SECTION: volume_outline ===",
+          "# 卷纲",
+          "",
+          "=== SECTION: book_rules ===",
+          "---",
+          "version: \"1.0\"",
+          "---",
+          "",
+          "=== SECTION: pending_hooks ===",
+          "| hook_id | 起始章节 | 类型 | 状态 | 最近推进 | 预期回收 | 备注 |",
+          "| --- | --- | --- | --- | --- | --- | --- |",
+          "| H01 | 1 | 主线 | 未开启 | 0 | 10章 | 初始钩子 |",
+        ].join("\n"),
+        usage: ZERO_USAGE,
+      });
+
+    const result = await agent.generateFoundation(book);
+
+    expect(result.currentState).toContain("当前章节 | 0");
+    expect(result.currentState).toContain("当前位置");
+    expect(result.currentState).toContain("主角状态");
+  });
+
+  it("falls back to default pending_hooks when section is missing from LLM output", async () => {
+    const agent = new ArchitectAgent({
+      client: {
+        provider: "openai",
+        apiFormat: "chat",
+        stream: false,
+        defaults: {
+          temperature: 0.7,
+          maxTokens: 4096,
+          thinkingBudget: 0, maxTokensCap: null,
+          extra: {},
+        },
+      },
+      model: "test-model",
+      projectRoot: process.cwd(),
+    });
+
+    const book: BookConfig = {
+      id: "missing-hooks-book",
+      title: "缺失伏笔池",
+      platform: "other",
+      genre: "other",
+      status: "active",
+      targetChapters: 20,
+      chapterWordCount: 2200,
+      language: "zh",
+      createdAt: "2026-04-15T00:00:00.000Z",
+      updatedAt: "2026-04-15T00:00:00.000Z",
+    };
+
+    vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValue({
+        content: [
+          "=== SECTION: story_bible ===",
+          "# 故事圣经",
+          "",
+          "=== SECTION: volume_outline ===",
+          "# 卷纲",
+          "",
+          "=== SECTION: book_rules ===",
+          "---",
+          "version: \"1.0\"",
+          "---",
+          "",
+          "=== SECTION: current_state ===",
+          "# 当前状态",
+        ].join("\n"),
+        usage: ZERO_USAGE,
+      });
+
+    const result = await agent.generateFoundation(book);
+
+    expect(result.pendingHooks).toContain("hook_id");
+    expect(result.pendingHooks).toContain("起始章节");
+    expect(result.pendingHooks).toContain("回收节奏");
+  });
+
+  it("falls back to defaults when both current_state and pending_hooks are missing", async () => {
+    const agent = new ArchitectAgent({
+      client: {
+        provider: "openai",
+        apiFormat: "chat",
+        stream: false,
+        defaults: {
+          temperature: 0.7,
+          maxTokens: 4096,
+          thinkingBudget: 0, maxTokensCap: null,
+          extra: {},
+        },
+      },
+      model: "test-model",
+      projectRoot: process.cwd(),
+    });
+
+    const book: BookConfig = {
+      id: "missing-both-book",
+      title: "都缺失",
+      platform: "other",
+      genre: "other",
+      status: "active",
+      targetChapters: 20,
+      chapterWordCount: 2200,
+      language: "zh",
+      createdAt: "2026-04-15T00:00:00.000Z",
+      updatedAt: "2026-04-15T00:00:00.000Z",
+    };
+
+    vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValue({
+        content: [
+          "=== SECTION: story_bible ===",
+          "# 故事圣经",
+          "",
+          "=== SECTION: volume_outline ===",
+          "# 卷纲",
+          "",
+          "=== SECTION: book_rules ===",
+          "---",
+          "version: \"1.0\"",
+          "---",
+        ].join("\n"),
+        usage: ZERO_USAGE,
+      });
+
+    const result = await agent.generateFoundation(book);
+
+    expect(result.currentState).toContain("当前章节 | 0");
+    expect(result.pendingHooks).toContain("hook_id");
+  });
+
   it("throws when a required foundation section is missing", async () => {
     const agent = new ArchitectAgent({
       client: {
