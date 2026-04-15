@@ -256,4 +256,76 @@ describe("agent pipeline tools", () => {
 
     expect(result.error).toContain("章节进度");
   });
+
+  // Phase hotfix 3: write_truth_file must accept both Chinese and English
+  // role-dir paths so English-layout books are writable, not just readable.
+  it("accepts roles/主要角色/<name>.md (zh locale)", async () => {
+    const result = JSON.parse(await executeAgentTool(
+      pipeline,
+      state,
+      config,
+      "write_truth_file",
+      {
+        bookId,
+        fileName: "roles/主要角色/林辞.md",
+        content: "# 林辞\n核心标签：沉默",
+      },
+    ));
+    expect(result.error).toBeUndefined();
+    const written = await readFile(
+      join(state.bookDir(bookId), "story", "roles/主要角色/林辞.md"),
+      "utf-8",
+    );
+    expect(written).toContain("核心标签");
+  });
+
+  it("accepts roles/major/<name>.md (en locale)", async () => {
+    const result = JSON.parse(await executeAgentTool(
+      pipeline,
+      state,
+      config,
+      "write_truth_file",
+      {
+        bookId,
+        fileName: "roles/major/Mara.md",
+        content: "# Mara\nCore tag: stoic",
+      },
+    ));
+    expect(result.error).toBeUndefined();
+    const written = await readFile(
+      join(state.bookDir(bookId), "story", "roles/major/Mara.md"),
+      "utf-8",
+    );
+    expect(written).toContain("Core tag");
+  });
+
+  it("accepts roles/minor/<name>.md (en locale)", async () => {
+    const result = JSON.parse(await executeAgentTool(
+      pipeline,
+      state,
+      config,
+      "write_truth_file",
+      {
+        bookId,
+        fileName: "roles/minor/Kit.md",
+        content: "# Kit\nMinor ally",
+      },
+    ));
+    expect(result.error).toBeUndefined();
+  });
+
+  it("rejects unknown role tier dirs (path-traversal safety preserved)", async () => {
+    const result = JSON.parse(await executeAgentTool(
+      pipeline,
+      state,
+      config,
+      "write_truth_file",
+      {
+        bookId,
+        fileName: "roles/其他/X.md",
+        content: "# X",
+      },
+    ));
+    expect(result.error).toBeDefined();
+  });
 });

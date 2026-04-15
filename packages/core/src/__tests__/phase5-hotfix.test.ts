@@ -196,6 +196,36 @@ describe("Phase 5 hotfix 3 — broken frontmatter fallback", () => {
     expect(warnMessage).toMatch(/story_frame\.md frontmatter is malformed/);
   });
 
+  it("readBookRules with broken story_frame frontmatter AND shim-only book_rules.md returns null (does NOT silently zero rules)", async () => {
+    // Phase hotfix 1 — common new-book path: story_frame YAML is broken,
+    // book_rules.md exists only as the architect-emitted compat shim with no
+    // YAML. Falling back to it as default-empty rules silently wipes
+    // protagonist / prohibitions / genreLock. Must return null + warn.
+    const storyDir = join(bookDir, "story");
+    await mkdir(join(storyDir, "outline"), { recursive: true });
+    await writeFile(
+      join(storyDir, "outline/story_frame.md"),
+      "---\nprotagonist: [unterminated\n---\n",
+      "utf-8",
+    );
+    await writeFile(
+      join(storyDir, "book_rules.md"),
+      "# 本书规则（兼容指针——已废弃）\n\n> 本文件仅为外部读取保留。权威 YAML frontmatter（protagonist / prohibitions / genreLock / ...）已迁移至 outline/story_frame.md 顶部。",
+      "utf-8",
+    );
+
+    const parsed = await readBookRules(bookDir);
+    expect(parsed).toBeNull();
+    // Two warnings expected: one for the broken story_frame frontmatter,
+    // one for the shim fallback.
+    expect(warnSpy).toHaveBeenCalled();
+    const allWarnings = warnSpy.mock.calls
+      .map((call) => String(call[0] ?? ""))
+      .join("\n");
+    expect(allWarnings).toMatch(/story_frame\.md frontmatter is malformed/);
+    expect(allWarnings).toMatch(/Phase 5 compat shim/);
+  });
+
   it("readBookRules with broken frontmatter AND no legacy returns null (with warning)", async () => {
     const storyDir = join(bookDir, "story");
     await mkdir(join(storyDir, "outline"), { recursive: true });

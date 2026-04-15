@@ -235,6 +235,63 @@ describe("Phase 5 hotfix 1 — Studio truth file endpoints", () => {
     expect(saved).toContain("# Updated");
   });
 
+  // Phase hotfix 3: en-locale role dirs (roles/major, roles/minor) must be
+  // first-class — readable, writable, listable. Previously the runtime
+  // could read them but Studio could not surface them.
+  it("serves roles/major/<name>.md (en locale)", async () => {
+    await mkdir(join(storyDir, "roles/major"), { recursive: true });
+    await writeFile(
+      join(storyDir, "roles/major/Mara.md"),
+      "# Mara\nCore tag: stoic",
+      "utf-8",
+    );
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request(
+      "http://localhost/api/books/hotfix-book/truth/roles/major/Mara.md",
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json() as { content: string };
+    expect(body.content).toContain("Core tag");
+  });
+
+  it("writes roles/minor/<name>.md (en locale) via PUT", async () => {
+    await mkdir(join(storyDir, "roles/minor"), { recursive: true });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request(
+      "http://localhost/api/books/hotfix-book/truth/roles/minor/Kit.md",
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "# Kit\nMinor ally" }),
+      },
+    );
+    expect(response.status).toBe(200);
+    const saved = await readFile(join(storyDir, "roles/minor/Kit.md"), "utf-8");
+    expect(saved).toContain("Minor ally");
+  });
+
+  it("lists en-locale role dirs alongside zh-locale dirs", async () => {
+    await mkdir(join(storyDir, "roles/major"), { recursive: true });
+    await mkdir(join(storyDir, "roles/minor"), { recursive: true });
+    await writeFile(join(storyDir, "roles/major/Mara.md"), "major", "utf-8");
+    await writeFile(join(storyDir, "roles/minor/Kit.md"), "minor", "utf-8");
+    await writeFile(join(storyDir, "roles/主要角色/主角甲.md"), "zh-major", "utf-8");
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/books/hotfix-book/truth");
+    const body = await response.json() as { files: ReadonlyArray<{ name: string }> };
+    const names = body.files.map((f) => f.name);
+    expect(names).toContain("roles/major/Mara.md");
+    expect(names).toContain("roles/minor/Kit.md");
+    expect(names).toContain("roles/主要角色/主角甲.md");
+  });
+
   it("lists outline/* and roles/**/*.md files in the truth browser", async () => {
     await writeFile(join(storyDir, "outline/story_frame.md"), "frame", "utf-8");
     await writeFile(join(storyDir, "outline/volume_map.md"), "map", "utf-8");

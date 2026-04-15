@@ -3,7 +3,7 @@ import { parseMemo, PlannerParseError } from "../utils/chapter-memo-parser.js";
 
 const SECTIONS = `
 ## 当前任务
-主角进入七号门查看被动过手脚的痕迹。
+主角进入七号门现场，比对锁芯刮痕与监控时间线，把"被动过手脚"从猜测钉成实证。
 
 ## 读者此刻在等什么
 1) 读者在等七号门异常是否实锤
@@ -14,7 +14,7 @@ const SECTIONS = `
 - 暂不掀：幕后主使 → 压到第 20 章
 
 ## 日常/过渡承担什么任务
-不适用 - 本章无日常过渡
+不适用 - 本章为高压实证章，无日常过渡段。
 
 ## 关键抉择过三连问
 - 主角本章最关键的一次选择：
@@ -136,5 +136,98 @@ describe("parseMemo", () => {
   it("throws on invalid YAML", () => {
     const raw = `---\nchapter: 12\n  bad indent: : :\n---\n${SECTIONS}\n`;
     expect(() => parseMemo(raw, 12, false)).toThrow(/invalid YAML/);
+  });
+
+  // Phase hotfix 7: empty / blank section payloads must be rejected.
+  describe("empty section detection", () => {
+    it("rejects a memo where every heading is present but payloads are blank", () => {
+      const blankBody = [
+        "## 当前任务",
+        "",
+        "## 读者此刻在等什么",
+        "",
+        "## 该兑现的 / 暂不掀的",
+        "",
+        "## 日常/过渡承担什么任务",
+        "",
+        "## 关键抉择过三连问",
+        "",
+        "## 章尾必须发生的改变",
+        "",
+        "## 不要做",
+        "",
+      ].join("\n");
+      expect(() => parseMemo(makeRaw({ body: blankBody }), 12, false))
+        .toThrow(/empty sections/);
+    });
+
+    it("rejects a memo where one section has only whitespace / placeholder", () => {
+      const body = SECTIONS.replace(
+        /## 当前任务\n[\s\S]*?\n\n## 读者此刻在等什么/,
+        "## 当前任务\n   \n\n## 读者此刻在等什么",
+      );
+      expect(() => parseMemo(makeRaw({ body }), 12, false))
+        .toThrow(/empty sections.*当前任务/);
+    });
+
+    it("rejects a memo where one section has 'TODO' (under 20 chars)", () => {
+      const body = SECTIONS.replace(
+        /## 章尾必须发生的改变\n[\s\S]*?\n\n## 不要做/,
+        "## 章尾必须发生的改变\nTODO\n\n## 不要做",
+      );
+      expect(() => parseMemo(makeRaw({ body }), 12, false))
+        .toThrow(/empty sections.*章尾必须发生的改变/);
+    });
+
+    it("accepts a sparse-but-non-empty memo (Phase 6 sparse-memo principle)", () => {
+      // Each section just barely meets the threshold — this is the
+      // breath/transition chapter case the principle wants to keep legal.
+      const sparseBody = [
+        "## 当前任务",
+        "主角与协作者在码头会合，交换上一案的情报与下一步行动安排。",
+        "",
+        "## 读者此刻在等什么",
+        "读者在等线索是否真被坐实。本章只给出半成品的暗示。",
+        "",
+        "## 该兑现的 / 暂不掀的",
+        "该兑现：暗示线索成形；暂不掀：幕后是谁，留到第 20 章。",
+        "",
+        "## 日常/过渡承担什么任务",
+        "码头闲笔铺人物关系，让协作者的犹豫成为下一章的钩。",
+        "",
+        "## 关键抉择过三连问",
+        "主角选信协作者，因为情报缺口只能从这里补；符合利益与人设。",
+        "",
+        "## 章尾必须发生的改变",
+        "关系改变：主角和协作者从交易关系微微转向共担风险的同伴。",
+        "",
+        "## 不要做",
+        "无",
+      ].join("\n");
+
+      const memo = parseMemo(makeRaw({ body: sparseBody }), 12, false);
+      expect(memo.body).toContain("## 当前任务");
+      expect(memo.body).toContain("## 不要做");
+    });
+
+    it('accepts "## 不要做" with very short content like "无" / "N/A" (relaxed threshold)', () => {
+      // The "do not" section uses a 5-char minimum so books with no extra
+      // chapter-level prohibitions can say so without inventing filler.
+      const body = SECTIONS.replace(
+        /## 不要做\n[\s\S]*$/,
+        "## 不要做\n无。",
+      );
+      const memo = parseMemo(makeRaw({ body }), 12, false);
+      expect(memo.body).toContain("无。");
+    });
+
+    it("rejects empty '## 不要做' even with the relaxed threshold", () => {
+      const body = SECTIONS.replace(
+        /## 不要做\n[\s\S]*$/,
+        "## 不要做\n",
+      );
+      expect(() => parseMemo(makeRaw({ body }), 12, false))
+        .toThrow(/empty sections.*不要做/);
+    });
   });
 });
