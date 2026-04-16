@@ -151,15 +151,8 @@ export class ConsolidatorAgent extends BaseAgent {
 
   /**
    * Phase 7 hotfix 2 — re-run promotion for seeds whose advancedCount has
-   * crossed the 2-chapter threshold since architect seed time. Structural
-   * rules (core_hook / depends_on / cross_volume) are already applied at
-   * architect time and stay sticky (once promoted, always promoted).
-   *
-   * advancedCount sources (first-win):
-   *   1. Explicit hook.advancedCount (test fixture path — our runtime doesn't
-   *      yet persist this).
-   *   2. Derived from chapter_summaries.md: count chapters whose hookActivity
-   *      cell mentions the hook id.
+   * crossed the 2-chapter threshold since architect seed time. Delegates to
+   * the shared `rerunPromotionPass` in utils/hook-promotion.ts.
    *
    * Returns the number of hooks that flipped from promoted=false (or
    * undefined) to promoted=true this run.
@@ -173,62 +166,14 @@ export class ConsolidatorAgent extends BaseAgent {
     if (hooks.length === 0) return 0;
 
     const language: "zh" | "en" = /[\u4e00-\u9fff]/.test(raw) ? "zh" : "en";
-
     const summariesRaw = await readFile(join(storyDir, "chapter_summaries.md"), "utf-8").catch(() => "");
-    const derivedCounts = this.deriveAdvancedCountsFromSummaries(
-      summariesRaw,
-      hooks.map((h) => h.hookId),
-    );
 
-    let flipped = 0;
-    const nextHooks: StoredHook[] = hooks.map((hook) => {
-      if (hook.promoted === true) return hook;
-      const advanced = hook.advancedCount ?? derivedCounts.get(hook.hookId) ?? 0;
-      if (advanced >= 2) {
-        flipped += 1;
-        return { ...hook, promoted: true };
-      }
-      // Preserve existing `promoted` (possibly undefined for legacy
-      // 11/12-column ledgers) when the threshold is not met. We deliberately
-      // do NOT override architect-set promoted=false here — the structural
-      // rules ran at architect time; rewriting them would fight that.
-      return hook;
-    });
+    const { rerunPromotionPass } = await import("../utils/hook-promotion.js");
+    const result = rerunPromotionPass(hooks, summariesRaw);
+    if (!result.updated) return 0;
 
-    if (flipped === 0) return 0;
-
-    await writeFile(ledgerPath, renderHookSnapshot(nextHooks, language), "utf-8");
-    return flipped;
-  }
-
-  /**
-   * Count how many chapter summaries mention each hook id in the hookActivity
-   * column. Crude but sufficient: chapter_summaries is the consolidator's
-   * source of truth for "what happened per chapter" and every reducer writes
-   * hook activity into it.
-   */
-  private deriveAdvancedCountsFromSummaries(
-    summariesRaw: string,
-    hookIds: ReadonlyArray<string>,
-  ): Map<string, number> {
-    const counts = new Map<string, number>();
-    if (!summariesRaw.trim() || hookIds.length === 0) return counts;
-
-    const lines = summariesRaw.split("\n");
-    for (const hookId of hookIds) {
-      // Escape regex meta characters in the hook id defensively.
-      const escaped = hookId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(escaped, "i");
-      let count = 0;
-      for (const line of lines) {
-        if (!line.startsWith("|")) continue;
-        // Skip header / separator rows.
-        if (line.includes("---") || /\|\s*(章节|Chapter)\s*\|/i.test(line)) continue;
-        if (pattern.test(line)) count += 1;
-      }
-      if (count > 0) counts.set(hookId, count);
-    }
-    return counts;
+    await writeFile(ledgerPath, renderHookSnapshot([...result.hooks], language), "utf-8");
+    return result.flippedCount;
   }
 
   private parseVolumeBoundaries(outline: string): Array<{ name: string; startCh: number; endCh: number }> {

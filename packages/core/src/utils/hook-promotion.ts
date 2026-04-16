@@ -189,3 +189,117 @@ export function defaultHalfLifeChapters(
 export function resolveHalfLifeChapters(hook: StoredHook): number {
   return hook.halfLifeChapters ?? defaultHalfLifeChapters(hook.payoffTiming);
 }
+
+// ---------------------------------------------------------------------------
+// Shared advanced_count promotion pass (used by both consolidator and runner)
+// ---------------------------------------------------------------------------
+
+export interface PromotionPassResult {
+  /** Whether any hook flipped to promoted=true. */
+  readonly updated: boolean;
+  /** The (possibly updated) hooks array. */
+  readonly hooks: ReadonlyArray<StoredHook>;
+  /** Number of hooks that flipped from non-promoted to promoted. */
+  readonly flippedCount: number;
+}
+
+/**
+ * Derive hook advancement counts from chapter_summaries.md content.
+ *
+ * Counts how many chapter-summary data rows mention each hook id in the
+ * hookActivity column (index 5, 0-based — "伏笔动态" / "hookActivity").
+ */
+export function deriveAdvancedCountsFromSummaries(
+  summariesRaw: string,
+  hookIds: ReadonlyArray<string>,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (!summariesRaw.trim() || hookIds.length === 0) return counts;
+
+  const lines = summariesRaw.split("\n");
+  // Detect hookActivity column index from the header row.
+  const hookActivityIndex = detectHookActivityColumnIndex(lines);
+
+  for (const hookId of hookIds) {
+    const escaped = hookId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`\\b${escaped}\\b`, "i");
+    let count = 0;
+    for (const line of lines) {
+      if (!line.startsWith("|")) continue;
+      // Skip header / separator rows.
+      if (line.includes("---") || /\|\s*(章节|Chapter)\s*\|/i.test(line)) continue;
+      // Only match in the hookActivity column, not the full row.
+      const cell = extractColumn(line, hookActivityIndex);
+      if (cell !== null && pattern.test(cell)) count += 1;
+    }
+    if (count > 0) counts.set(hookId, count);
+  }
+  return counts;
+}
+
+/**
+ * Find the 0-based column index of the hookActivity / 伏笔动态 header.
+ * Falls back to 5 (the standard position in our schema).
+ */
+function detectHookActivityColumnIndex(lines: ReadonlyArray<string>): number {
+  const DEFAULT_INDEX = 5;
+  for (const line of lines) {
+    if (!line.startsWith("|")) continue;
+    if (/\|\s*(章节|Chapter)\s*\|/i.test(line)) {
+      const cols = line.split("|").map((c) => c.trim());
+      const idx = cols.findIndex((c) => /^(伏笔动态|hookActivity)$/i.test(c));
+      return idx >= 0 ? idx : DEFAULT_INDEX;
+    }
+  }
+  return DEFAULT_INDEX;
+}
+
+/**
+ * Extract a single column value from a pipe-delimited table row.
+ * Returns null when the column index is out of range.
+ */
+function extractColumn(row: string, index: number): string | null {
+  const cols = row.split("|");
+  if (index >= 0 && index < cols.length) {
+    return cols[index]!.trim();
+  }
+  return null;
+}
+
+/**
+ * Lightweight promotion pass: read hooks + chapter_summaries, check
+ * advancedCount >= 2, flip promoted flag. No LLM calls.
+ *
+ * Returns the result without doing any I/O — caller decides whether to
+ * persist.
+ */
+export function rerunPromotionPass(
+  hooks: ReadonlyArray<StoredHook>,
+  summariesRaw: string,
+): PromotionPassResult {
+  if (hooks.length === 0) {
+    return { updated: false, hooks, flippedCount: 0 };
+  }
+
+  const derivedCounts = deriveAdvancedCountsFromSummaries(
+    summariesRaw,
+    hooks.map((h) => h.hookId),
+  );
+
+  let flipped = 0;
+  const nextHooks: StoredHook[] = hooks.map((hook) => {
+    if (hook.promoted === true) return hook;
+    const advanced = hook.advancedCount ?? derivedCounts.get(hook.hookId) ?? 0;
+    if (advanced >= 2) {
+      flipped += 1;
+      return { ...hook, promoted: true };
+    }
+    return hook;
+  });
+
+  return {
+    updated: flipped > 0,
+    hooks: nextHooks,
+    flippedCount: flipped,
+  };
+}

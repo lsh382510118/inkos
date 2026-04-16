@@ -1285,6 +1285,30 @@ export class PipelineRunner {
       }
     }
 
+    // 3c. Lightweight per-chapter promotion pass — check if any hooks should
+    // be promoted based on advanced_count derived from chapter_summaries.
+    // Runs BEFORE persistence so the reviewer of the NEXT chapter sees the
+    // updated ledger. No LLM calls — pure ledger parse + threshold check.
+    {
+      const { rerunPromotionPass } = await import("../utils/hook-promotion.js");
+      const { parsePendingHooksMarkdown, renderHookSnapshot } = await import("../utils/story-markdown.js");
+      const promotionStoryDir = join(bookDir, "story");
+      const ledgerPath = join(promotionStoryDir, "pending_hooks.md");
+      const ledgerRaw = await readFile(ledgerPath, "utf-8").catch(() => "");
+      if (ledgerRaw.trim()) {
+        const hooks = parsePendingHooksMarkdown(ledgerRaw);
+        if (hooks.length > 0) {
+          const summariesRaw = await readFile(join(promotionStoryDir, "chapter_summaries.md"), "utf-8").catch(() => "");
+          const promotionResult = rerunPromotionPass(hooks, summariesRaw);
+          if (promotionResult.updated) {
+            const ledgerLang: "zh" | "en" = /[\u4e00-\u9fff]/.test(ledgerRaw) ? "zh" : "en";
+            await writeFile(ledgerPath, renderHookSnapshot([...promotionResult.hooks], ledgerLang), "utf-8");
+            this.config.logger?.info(`[promotion] ${promotionResult.flippedCount} hook(s) promoted after chapter ${chapterNumber}`);
+          }
+        }
+      }
+    }
+
     // 4. Save the final chapter and truth files from a single persistence source
     this.logStage(stageLanguage, { zh: "落盘最终章节", en: "persisting final chapter" });
     this.logStage(stageLanguage, { zh: "生成最终真相文件", en: "rebuilding final truth files" });
