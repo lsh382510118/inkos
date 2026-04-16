@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.3.2
+
+### Bug Fixes
+
+- **恢复 `architect` foundation 输出预算**：重新固定 `maxTokens: 16384`，降低本地模型与 LM Studio 在建书阶段因输出截断导致 foundation 缺段的概率
+- **恢复旧的 OpenAI-compatible 兼容路径**：`provider=openai + 自定义兼容 baseUrl` 不再被错误送入更激进的 `custom fetch` 路径，Google/Gemma 一类旧兼容场景回归
+- **自定义 Anthropic-compatible 原生 transport**：`service=custom` 且 `provider=anthropic` 也改走原生请求链，不再强绑 SDK
+- **Windows Studio 启动修复**：`inkos studio` 在 Windows 下不再因绝对路径 loader 被当成非法 ESM URL 而崩溃
+- **Bootstrap 项目回退到 env 配置**：空目录 auto-init 后的 Studio 项目，在未配置服务时会回退到全局 `.inkos/.env`，`book create` 不再先死在缺 key
+- **统一服务路由真相**：`config-loader`、`service-resolver`、Studio 服务探测、`doctor` 统一从同一份 `service-presets` 读取 provider/api/chatBaseUrl/modelsBaseUrl，减少同一服务在不同链路上各猜一遍的问题
+
+### 改进
+
+- **空目录直接启动**：`inkos` / `inkos studio` 现在会自动初始化最小项目骨架并启动 Studio，不再要求显式先跑 `init`
+- **Studio 自动探测 transport**：服务测试会自动尝试候选模型、`chat/responses` 与流式开关组合，尽量自动匹配可用配置
+- **`doctor` 增强**：不再只死盯当前单一模型/单一组合，支持多 model、多协议、多流式探测
+- **建书聊天 fresh session**：再次进入“创建书籍”时会清空旧对话，不再沿用上一次建书聊天记录
+- **聊天模型选择器搜索**：Studio model picker 支持搜索过滤
+- **侧栏刷新更克制**：读操作不再触发无意义 sidebar 刷新，只在写操作后刷新
+- **服务保存流程更真实**：保存 API Key 后会走真实 `/test` 探测，而不是只靠 `/models`
+
 ## v1.3.1
 
 ### Bug Fixes
