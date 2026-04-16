@@ -7,6 +7,7 @@ export interface ServicePreset {
   readonly defaultTemperature?: number;
   readonly writingTemperature?: number;
   readonly temperatureHint?: string;
+  readonly knownModels?: readonly string[];
   readonly piProvider?: string;
   readonly modelsBaseUrl?: string;
 }
@@ -16,7 +17,17 @@ export const SERVICE_PRESETS: Record<string, ServicePreset> = {
   anthropic:   { providerFamily: "anthropic", api: "anthropic-messages", baseUrl: "https://api.anthropic.com",                          label: "Anthropic",       temperatureRange: [0, 1], defaultTemperature: 1.0, writingTemperature: 1.0, temperatureHint: "不要同时改 temperature 和 top_p" },
   deepseek:    { providerFamily: "openai",    api: "openai-completions", baseUrl: "https://api.deepseek.com",                           label: "DeepSeek",        temperatureRange: [0, 2], defaultTemperature: 1.0, writingTemperature: 1.5, temperatureHint: "创意写作推荐 1.5" },
   moonshot:    { providerFamily: "openai",    api: "openai-completions", baseUrl: "https://api.moonshot.cn/v1",                         label: "Moonshot (Kimi)", temperatureRange: [0, 1], defaultTemperature: 0.3, writingTemperature: 1.0, temperatureHint: "kimi-k2.5 推荐 temperature=1.0" },
-  minimax:     { providerFamily: "anthropic", api: "anthropic-messages", baseUrl: "https://api.minimaxi.com/anthropic",                 label: "MiniMax",         temperatureRange: [0, 2], defaultTemperature: 0.9, writingTemperature: 0.9, piProvider: "anthropic" },
+  minimax:     {
+    providerFamily: "anthropic",
+    api: "anthropic-messages",
+    baseUrl: "https://api.minimaxi.com/anthropic",
+    label: "MiniMax",
+    temperatureRange: [0, 2],
+    defaultTemperature: 0.9,
+    writingTemperature: 0.9,
+    knownModels: ["MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-M2.1-highspeed", "MiniMax-M2"],
+    piProvider: "anthropic",
+  },
   bailian:     { providerFamily: "anthropic", api: "anthropic-messages", baseUrl: "https://dashscope.aliyuncs.com/apps/anthropic",      modelsBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", label: "百炼 (通义千问)", temperatureRange: [0, 2], defaultTemperature: 0.7, writingTemperature: 1.0, piProvider: "anthropic" },
   zhipu:       { providerFamily: "openai",    api: "openai-completions", baseUrl: "https://open.bigmodel.cn/api/paas/v4",               label: "智谱 GLM",        temperatureRange: [0, 1], defaultTemperature: 0.95, writingTemperature: 0.95, piProvider: "zai" },
   siliconflow: { providerFamily: "openai",    api: "openai-completions", baseUrl: "https://api.siliconflow.cn/v1",                      label: "硅基流动" },
@@ -94,6 +105,10 @@ export interface ModelInfo {
 export async function listModelsForService(service: string, apiKey?: string): Promise<ReadonlyArray<ModelInfo>> {
   const preset = SERVICE_PRESETS[service];
   if (!preset || service === "custom") return [];
+
+  if (preset.knownModels && preset.knownModels.length > 0) {
+    return preset.knownModels.map((id) => ({ id, name: id, reasoning: false, contextWindow: 0 }));
+  }
 
   // 1) 尝试动态获取：调用 GET {modelsBaseUrl || baseUrl}/models
   const modelsBaseUrl = resolveServiceModelsBaseUrl(service);
