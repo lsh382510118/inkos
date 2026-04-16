@@ -60,6 +60,7 @@ const SubAgentParams = Type.Object({
   instruction: Type.String({ description: "Natural language instruction from the main Agent" }),
   bookId: Type.Optional(Type.String({ description: "Book ID — required for all agents except architect" })),
   title: Type.Optional(Type.String({ description: "Architect only: explicit book title. Required when creating a book." })),
+  chapterNumber: Type.Optional(Type.Number({ description: "Target chapter number for auditor/reviser. Omit to use the latest chapter." })),
 });
 
 function deriveBookIdFromTitle(title: string): string {
@@ -90,7 +91,7 @@ export function createSubAgentTool(
       _signal?: AbortSignal,
       onUpdate?: AgentToolUpdateCallback,
     ): Promise<AgentToolResult<undefined>> {
-      const { agent, instruction, bookId, title } = params;
+      const { agent, instruction, bookId, title, chapterNumber } = params;
 
       const progress = (msg: string) => {
         onUpdate?.(textResult(msg));
@@ -130,8 +131,8 @@ export function createSubAgentTool(
 
           case "auditor": {
             if (!bookId) return textResult("Error: bookId is required for the auditor agent.");
-            progress(`Auditing draft for "${bookId}"...`);
-            const audit = await pipeline.auditDraft(bookId);
+            progress(`Auditing chapter ${chapterNumber ?? "latest"} for "${bookId}"...`);
+            const audit = await pipeline.auditDraft(bookId, chapterNumber);
             progress(`Audit complete for "${bookId}".`);
             const issueCount = audit.issues?.length ?? 0;
             return textResult(
@@ -150,10 +151,10 @@ export function createSubAgentTool(
                 : /rework|返工/.test(instruction)
                   ? "rework"
                   : "spot-fix";
-            progress(`Revising "${bookId}" in ${mode} mode...`);
-            await pipeline.reviseDraft(bookId, undefined, mode);
+            progress(`Revising "${bookId}" chapter ${chapterNumber ?? "latest"} in ${mode} mode...`);
+            await pipeline.reviseDraft(bookId, chapterNumber, mode);
             progress(`Revision complete for "${bookId}".`);
-            return textResult(`Revision (${mode}) complete for "${bookId}".`);
+            return textResult(`Revision (${mode}) complete for "${bookId}" chapter ${chapterNumber ?? "latest"}.`);
           }
 
           case "exporter": {
@@ -181,165 +182,6 @@ export function createSubAgentTool(
       } catch (err: any) {
         console.error(`[sub_agent] "${agent}" failed:`, err);
         return textResult(`Sub-agent "${agent}" failed: ${err?.message ?? String(err)}`);
-      }
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// 1.5 Deterministic writing tools
-// ---------------------------------------------------------------------------
-
-const ReviseChapterParams = Type.Object({
-  bookId: Type.Optional(Type.String({ description: "Book ID. Defaults to the active book." })),
-  chapterNumber: Type.Optional(Type.Number({ description: "Chapter number. Defaults to the latest drafted chapter." })),
-  mode: Type.Optional(Type.Union([
-    Type.Literal("polish"),
-    Type.Literal("rewrite"),
-    Type.Literal("rework"),
-    Type.Literal("anti-detect"),
-    Type.Literal("spot-fix"),
-  ])),
-});
-
-export function createReviseChapterTool(
-  pipeline: PipelineRunner,
-  activeBookId: string | null,
-): AgentTool<typeof ReviseChapterParams> {
-  return {
-    name: "revise_chapter",
-    description:
-      "Rewrite or revise an existing chapter through the deterministic chapter revision pipeline. " +
-      "Use this for 精修、重写、返工, not the generic edit tool.",
-    label: "Revise Chapter",
-    parameters: ReviseChapterParams,
-    async execute(
-      _toolCallId: string,
-      params: Static<typeof ReviseChapterParams>,
-    ): Promise<AgentToolResult<undefined>> {
-      try {
-        const bookId = resolveToolBookId("revise_chapter", params.bookId, activeBookId);
-        const result = await pipeline.reviseDraft(
-          bookId,
-          params.chapterNumber as number,
-          (params.mode ?? DEFAULT_REVISE_MODE) as ReviseMode,
-        );
-        const responseText = `Chapter revision completed for "${bookId}"${params.chapterNumber ? ` chapter ${params.chapterNumber}` : ""}.`;
-        return textResult(responseText);
-      } catch (err: any) {
-        return textResult(`Failed to revise chapter: ${err?.message ?? String(err)}`);
-      }
-    },
-  };
-}
-
-const WriteTruthFileParams = Type.Object({
-  bookId: Type.Optional(Type.String({ description: "Book ID. Defaults to the active book." })),
-  fileName: Type.String({ description: "Truth file name, e.g. story_bible.md or current_focus.md" }),
-  content: Type.String({ description: "Complete replacement content for the truth file" }),
-});
-
-export function createWriteTruthFileTool(
-  pipeline: PipelineRunner,
-  projectRoot: string,
-  activeBookId: string | null,
-): AgentTool<typeof WriteTruthFileParams> {
-  const interactionTools = createDeterministicInteractionTools(pipeline, projectRoot);
-
-  return {
-    name: "write_truth_file",
-    description:
-      "Replace a canonical truth file in story/. Use this for story_bible, volume outline, rules, focus, and other book facts.",
-    label: "Write Truth File",
-    parameters: WriteTruthFileParams,
-    async execute(
-      _toolCallId: string,
-      params: Static<typeof WriteTruthFileParams>,
-    ): Promise<AgentToolResult<undefined>> {
-      try {
-        const bookId = resolveToolBookId("write_truth_file", params.bookId, activeBookId);
-        await interactionTools.writeTruthFile(bookId, params.fileName, params.content);
-        return textResult(`Updated ${params.fileName} for "${bookId}".`);
-      } catch (err: any) {
-        return textResult(`Failed to write truth file: ${err?.message ?? String(err)}`);
-      }
-    },
-  };
-}
-
-const RenameEntityParams = Type.Object({
-  bookId: Type.Optional(Type.String({ description: "Book ID. Defaults to the active book." })),
-  oldValue: Type.String({ description: "The old character/entity name" }),
-  newValue: Type.String({ description: "The new character/entity name" }),
-});
-
-export function createRenameEntityTool(
-  pipeline: PipelineRunner,
-  projectRoot: string,
-  activeBookId: string | null,
-): AgentTool<typeof RenameEntityParams> {
-  const interactionTools = createDeterministicInteractionTools(pipeline, projectRoot);
-
-  return {
-    name: "rename_entity",
-    description:
-      "Rename a character or entity across the current book through the deterministic edit controller.",
-    label: "Rename Entity",
-    parameters: RenameEntityParams,
-    async execute(
-      _toolCallId: string,
-      params: Static<typeof RenameEntityParams>,
-    ): Promise<AgentToolResult<undefined>> {
-      try {
-        const bookId = resolveToolBookId("rename_entity", params.bookId, activeBookId);
-        const result = await interactionTools.renameEntity(bookId, params.oldValue, params.newValue);
-        const responseText = (result as { __interaction?: { responseText?: string } }).__interaction?.responseText
-          ?? `Renamed ${params.oldValue} to ${params.newValue} in "${bookId}".`;
-        return textResult(responseText);
-      } catch (err: any) {
-        return textResult(`Failed to rename entity: ${err?.message ?? String(err)}`);
-      }
-    },
-  };
-}
-
-const PatchChapterTextParams = Type.Object({
-  bookId: Type.Optional(Type.String({ description: "Book ID. Defaults to the active book." })),
-  chapterNumber: Type.Number({ description: "Chapter number to patch" }),
-  targetText: Type.String({ description: "Exact text to replace" }),
-  replacementText: Type.String({ description: "Replacement text" }),
-});
-
-export function createPatchChapterTextTool(
-  pipeline: PipelineRunner,
-  projectRoot: string,
-  activeBookId: string | null,
-): AgentTool<typeof PatchChapterTextParams> {
-  const interactionTools = createDeterministicInteractionTools(pipeline, projectRoot);
-
-  return {
-    name: "patch_chapter_text",
-    description:
-      "Apply a local deterministic patch to an existing chapter and mark it for review.",
-    label: "Patch Chapter Text",
-    parameters: PatchChapterTextParams,
-    async execute(
-      _toolCallId: string,
-      params: Static<typeof PatchChapterTextParams>,
-    ): Promise<AgentToolResult<undefined>> {
-      try {
-        const bookId = resolveToolBookId("patch_chapter_text", params.bookId, activeBookId);
-        const result = await interactionTools.patchChapterText(
-          bookId,
-          params.chapterNumber,
-          params.targetText,
-          params.replacementText,
-        );
-        const responseText = (result as { __interaction?: { responseText?: string } }).__interaction?.responseText
-          ?? `Patched chapter ${params.chapterNumber} in "${bookId}".`;
-        return textResult(responseText);
-      } catch (err: any) {
-        return textResult(`Failed to patch chapter text: ${err?.message ?? String(err)}`);
       }
     },
   };
