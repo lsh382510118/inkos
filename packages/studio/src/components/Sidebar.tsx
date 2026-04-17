@@ -1,8 +1,25 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApi } from "../hooks/use-api";
 import type { SSEMessage } from "../hooks/use-sse";
 import { shouldRefetchBookCollections, shouldRefetchDaemonStatus } from "../hooks/use-book-activity";
 import type { TFunction } from "../hooks/use-i18n";
+import { useChatStore } from "../store/chat";
+import { ConfirmDialog } from "./ConfirmDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import {
   Book,
   Settings,
@@ -15,6 +32,11 @@ import {
   FileInput,
   TrendingUp,
   Stethoscope,
+  ChevronRight,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 interface BookSummary {
@@ -47,6 +69,22 @@ export function Sidebar({ nav, activePage, sse, t }: {
 }) {
   const { data, refetch: refetchBooks } = useApi<{ books: ReadonlyArray<BookSummary> }>("/books");
   const { data: daemon, refetch: refetchDaemon } = useApi<{ running: boolean }>("/daemon");
+  const sessions = useChatStore((s) => s.sessions);
+  const sessionIdsByBook = useChatStore((s) => s.sessionIdsByBook);
+  const activeSessionId = useChatStore((s) => s.activeSessionId);
+  const bookDataVersion = useChatStore((s) => s.bookDataVersion);
+  const loadSessionList = useChatStore((s) => s.loadSessionList);
+  const loadSessionDetail = useChatStore((s) => s.loadSessionDetail);
+  const activateSession = useChatStore((s) => s.activateSession);
+  const createSession = useChatStore((s) => s.createSession);
+  const renameSession = useChatStore((s) => s.renameSession);
+  const deleteSession = useChatStore((s) => s.deleteSession);
+  const [expandedBooks, setExpandedBooks] = useState<Record<string, boolean>>({});
+  const [renameTarget, setRenameTarget] = useState<{ sessionId: string; currentTitle: string } | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ sessionId: string; title: string } | null>(null);
+
+  const books = data?.books ?? [];
 
   useEffect(() => {
     const recent = sse.messages.at(-1);
@@ -58,6 +96,59 @@ export function Sidebar({ nav, activePage, sse, t }: {
       refetchDaemon();
     }
   }, [refetchBooks, refetchDaemon, sse.messages]);
+
+  useEffect(() => {
+    for (const book of books) {
+      void loadSessionList(book.id);
+    }
+  }, [bookDataVersion, books, loadSessionList]);
+
+  useEffect(() => {
+    if (!activePage.startsWith("book:")) return;
+    const activeBookId = activePage.slice("book:".length);
+    setExpandedBooks((prev) => ({ ...prev, [activeBookId]: true }));
+  }, [activePage]);
+
+  const sessionsByBook = useMemo(
+    () =>
+      Object.fromEntries(
+        books.map((book) => [
+          book.id,
+          (sessionIdsByBook[book.id] ?? [])
+            .map((sessionId) => sessions[sessionId])
+            .filter(Boolean),
+        ]),
+      ) as Record<string, Array<(typeof sessions)[string]>>,
+    [books, sessionIdsByBook, sessions],
+  );
+
+  const openSession = (bookId: string, sessionId: string) => {
+    activateSession(sessionId);
+    nav.toBook(bookId);
+    void loadSessionDetail(sessionId);
+  };
+
+  const handleCreateSession = async (bookId: string) => {
+    const sessionId = await createSession(bookId);
+    setExpandedBooks((prev) => ({ ...prev, [bookId]: true }));
+    nav.toBook(bookId);
+    await loadSessionDetail(sessionId);
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!renameTarget) return;
+    const nextTitle = renameValue.trim();
+    if (!nextTitle) return;
+    await renameSession(renameTarget.sessionId, nextTitle);
+    setRenameTarget(null);
+    setRenameValue("");
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    await deleteSession(deleteTarget.sessionId);
+    setDeleteTarget(null);
+  };
 
   return (
     <aside className="w-[260px] shrink-0 border-r border-border bg-background/80 backdrop-blur-md flex flex-col h-full overflow-hidden select-none">
@@ -95,27 +186,125 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </div>
 
           <div className="space-y-1">
-            {data?.books.map((book) => (
-              <button
-                key={book.id}
-                onClick={() => nav.toBook(book.id)}
-                className={`w-full group flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
-                  activePage === `book:${book.id}`
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-foreground font-medium hover:text-foreground hover:bg-secondary/50"
-                }`}
-              >
-                <Book size={16} className={activePage === `book:${book.id}` ? "text-primary" : "text-muted-foreground group-hover:text-foreground"} />
-                <span className="truncate flex-1 text-left">{book.title}</span>
-                {book.chaptersWritten > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary transition-colors">
-                    {book.chaptersWritten}
-                  </span>
-                )}
-              </button>
-            ))}
+            {books.map((book) => {
+              const bookSessions = sessionsByBook[book.id] ?? [];
+              const isActiveBook = activePage === `book:${book.id}`;
+              const isExpanded = expandedBooks[book.id] ?? isActiveBook;
+              return (
+                <div key={book.id} className="space-y-1">
+                  <div
+                    className={`group flex items-center gap-2 rounded-lg px-2 py-1 ${
+                      isActiveBook ? "bg-primary/8" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedBooks((prev) => ({ ...prev, [book.id]: !isExpanded }))}
+                      className="h-7 w-7 shrink-0 rounded-md text-muted-foreground hover:bg-secondary/70 hover:text-foreground transition-colors"
+                    >
+                      <ChevronRight
+                        size={14}
+                        className={`mx-auto transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                      />
+                    </button>
+                    <button
+                      onClick={() => nav.toBook(book.id)}
+                      className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-sm transition-all duration-200 ${
+                        isActiveBook
+                          ? "text-primary font-medium"
+                          : "text-foreground font-medium hover:text-foreground"
+                      }`}
+                    >
+                      <Book size={16} className={isActiveBook ? "text-primary" : "text-muted-foreground group-hover:text-foreground"} />
+                      <span className="truncate flex-1 text-left">{book.title}</span>
+                      {book.chaptersWritten > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+                          {book.chaptersWritten}
+                        </span>
+                      )}
+                    </button>
+                  </div>
 
-            {(!data?.books || data.books.length === 0) && (
+                  {isExpanded && (
+                    <div className="ml-8 space-y-1 border-l border-border/40 pl-3">
+                      {bookSessions.map((session) => {
+                        const isActiveSession = isActiveBook && activeSessionId === session.sessionId;
+                        const label = getSessionLabel(session.sessionId, session.title);
+                        return (
+                          <div
+                            key={session.sessionId}
+                            className={`flex items-center gap-1 rounded-md px-1 py-0.5 ${
+                              isActiveSession ? "bg-primary/10" : "hover:bg-secondary/50"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => openSession(book.id, session.sessionId)}
+                              className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
+                                isActiveSession
+                                  ? "text-primary"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  isActiveSession
+                                    ? "bg-primary"
+                                    : session.isStreaming
+                                      ? "bg-emerald-500"
+                                      : "bg-border"
+                                }`}
+                              />
+                              <span className="truncate flex-1">{label}</span>
+                              {session.isStreaming ? (
+                                <Loader2 size={12} className="animate-spin text-emerald-500" />
+                              ) : isActiveSession ? (
+                                <span className="text-primary">●</span>
+                              ) : null}
+                            </button>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary/70 hover:text-foreground transition-colors">
+                                <MoreHorizontal size={14} />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent side="right" align="start" className="w-36">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setRenameTarget({ sessionId: session.sessionId, currentTitle: label });
+                                    setRenameValue(session.title ?? "");
+                                  }}
+                                >
+                                  <Pencil size={14} />
+                                  <span>改名</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => setDeleteTarget({ sessionId: session.sessionId, title: label })}
+                                >
+                                  <Trash2 size={14} />
+                                  <span>删除</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateSession(book.id)}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-muted-foreground/60 hover:text-primary hover:bg-primary/5 transition-all"
+                      >
+                        <Plus size={12} />
+                        <span>新建会话</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {books.length === 0 && (
               <div className="px-3 py-6 text-xs text-muted-foreground/70 italic text-center border border-dashed border-border rounded-lg">
                 {t("dash.noBooks")}
               </div>
@@ -207,8 +396,88 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={renameTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameTarget(null);
+            setRenameValue("");
+          }
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>重命名会话</DialogTitle>
+            <DialogDescription>
+              手动标题会覆盖自动生成标题，后续不再被 AI 改写。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="session-rename-input">
+              会话标题
+            </label>
+            <input
+              id="session-rename-input"
+              autoFocus
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handleRenameConfirm();
+                }
+              }}
+              placeholder="输入新标题"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setRenameTarget(null);
+                setRenameValue("");
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-xl bg-secondary text-foreground hover:bg-secondary/80 transition-all border border-border/50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleRenameConfirm()}
+              disabled={!renameValue.trim()}
+              className="px-4 py-2 text-sm font-bold rounded-xl bg-primary text-primary-foreground transition-all disabled:opacity-40"
+            >
+              保存
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除会话"
+        message={`确认删除“${deleteTarget?.title ?? ""}”吗？该操作只删除这条会话，不影响书籍内容。`}
+        confirmLabel="删除"
+        cancelLabel="取消"
+        variant="danger"
+        onConfirm={() => void handleDeleteConfirm()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </aside>
   );
+}
+
+function getSessionLabel(sessionId: string, title: string | null): string {
+  if (title) return title;
+  const rawTs = Number(sessionId.split("-")[0]);
+  if (!Number.isFinite(rawTs)) return "新会话";
+  const formatted = new Date(rawTs).toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `新会话 · ${formatted}`;
 }
 
 function SidebarItem({ label, icon, active, onClick, badge, badgeColor }: {
