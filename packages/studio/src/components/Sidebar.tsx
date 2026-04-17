@@ -21,18 +21,16 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import {
-  Book,
   Settings,
   Terminal,
   Plus,
   ScrollText,
   Boxes,
-  Zap,
   Wand2,
   FileInput,
   TrendingUp,
   Stethoscope,
-  ChevronRight,
+  FolderOpen,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -79,7 +77,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
   const createSession = useChatStore((s) => s.createSession);
   const renameSession = useChatStore((s) => s.renameSession);
   const deleteSession = useChatStore((s) => s.deleteSession);
-  const [expandedBooks, setExpandedBooks] = useState<Record<string, boolean>>({});
   const [renameTarget, setRenameTarget] = useState<{ sessionId: string; currentTitle: string } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ sessionId: string; title: string } | null>(null);
@@ -103,12 +100,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
     }
   }, [bookDataVersion, books, loadSessionList]);
 
-  useEffect(() => {
-    if (!activePage.startsWith("book:")) return;
-    const activeBookId = activePage.slice("book:".length);
-    setExpandedBooks((prev) => ({ ...prev, [activeBookId]: true }));
-  }, [activePage]);
-
   const sessionsByBook = useMemo(
     () =>
       Object.fromEntries(
@@ -130,7 +121,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
 
   const handleCreateSession = async (bookId: string) => {
     const sessionId = await createSession(bookId);
-    setExpandedBooks((prev) => ({ ...prev, [bookId]: true }));
     nav.toBook(bookId);
     await loadSessionDetail(sessionId);
   };
@@ -185,86 +175,55 @@ export function Sidebar({ nav, activePage, sse, t }: {
             </button>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-4">
             {books.map((book) => {
               const bookSessions = sessionsByBook[book.id] ?? [];
               const isActiveBook = activePage === `book:${book.id}`;
-              const isExpanded = expandedBooks[book.id] ?? isActiveBook;
               return (
-                <div key={book.id} className="space-y-1">
-                  <div
-                    className={`group flex items-center gap-2 rounded-lg px-2 py-1 ${
-                      isActiveBook ? "bg-primary/8" : ""
-                    }`}
+                <div key={book.id}>
+                  {/* 书名行 */}
+                  <button
+                    onClick={() => nav.toBook(book.id)}
+                    className="group flex w-full items-center gap-2.5 px-3 py-1 text-sm transition-colors"
                   >
-                    <button
-                      type="button"
-                      onClick={() => setExpandedBooks((prev) => ({ ...prev, [book.id]: !isExpanded }))}
-                      className="h-7 w-7 shrink-0 rounded-md text-muted-foreground hover:bg-secondary/70 hover:text-foreground transition-colors"
-                    >
-                      <ChevronRight
-                        size={14}
-                        className={`mx-auto transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                      />
-                    </button>
-                    <button
-                      onClick={() => nav.toBook(book.id)}
-                      className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-sm transition-all duration-200 ${
-                        isActiveBook
-                          ? "text-primary font-medium"
-                          : "text-foreground font-medium hover:text-foreground"
-                      }`}
-                    >
-                      <Book size={16} className={isActiveBook ? "text-primary" : "text-muted-foreground group-hover:text-foreground"} />
-                      <span className="truncate flex-1 text-left">{book.title}</span>
-                      {book.chaptersWritten > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary transition-colors">
-                          {book.chaptersWritten}
-                        </span>
-                      )}
-                    </button>
-                  </div>
+                    <FolderOpen size={16} className="shrink-0 text-muted-foreground/70" />
+                    <span className={`truncate flex-1 text-left ${isActiveBook ? "text-foreground font-medium" : "text-muted-foreground group-hover:text-foreground"}`}>
+                      {book.title}
+                    </span>
+                  </button>
 
-                  {isExpanded && (
-                    <div className="ml-8 space-y-1 border-l border-border/40 pl-3">
-                      {bookSessions.map((session) => {
+                  {/* Session 列表 */}
+                  <div className="mt-0.5">
+                    {bookSessions.length === 0 ? (
+                      <div className="px-10 py-1 text-xs text-muted-foreground/40">暂无聊天</div>
+                    ) : (
+                      bookSessions.map((session) => {
                         const isActiveSession = isActiveBook && activeSessionId === session.sessionId;
                         const label = getSessionLabel(session.sessionId, session.title);
                         return (
                           <div
                             key={session.sessionId}
-                            className={`flex items-center gap-1 rounded-md px-1 py-0.5 ${
-                              isActiveSession ? "bg-primary/10" : "hover:bg-secondary/50"
-                            }`}
+                            className={`group/session flex items-center gap-1 px-3 ${isActiveSession ? "bg-secondary/50" : "hover:bg-secondary/30"} rounded-md`}
                           >
                             <button
                               type="button"
                               onClick={() => openSession(book.id, session.sessionId)}
-                              className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
-                                isActiveSession
-                                  ? "text-primary"
-                                  : "text-muted-foreground hover:text-foreground"
-                              }`}
+                              className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left text-[13px] transition-colors"
                             >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  isActiveSession
-                                    ? "bg-primary"
-                                    : session.isStreaming
-                                      ? "bg-emerald-500"
-                                      : "bg-border"
-                                }`}
-                              />
-                              <span className="truncate flex-1">{label}</span>
+                              <span className={`truncate flex-1 pl-7 ${isActiveSession ? "text-foreground" : "text-muted-foreground group-hover/session:text-foreground"}`}>
+                                {label}
+                              </span>
                               {session.isStreaming ? (
-                                <Loader2 size={12} className="animate-spin text-emerald-500" />
-                              ) : isActiveSession ? (
-                                <span className="text-primary">●</span>
-                              ) : null}
+                                <Loader2 size={12} className="shrink-0 animate-spin text-primary" />
+                              ) : (
+                                <span className="shrink-0 text-[11px] text-muted-foreground/40">
+                                  {formatRelativeTime(session.sessionId)}
+                                </span>
+                              )}
                             </button>
 
                             <DropdownMenu>
-                              <DropdownMenuTrigger className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary/70 hover:text-foreground transition-colors">
+                              <DropdownMenuTrigger className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/0 group-hover/session:text-muted-foreground hover:!text-foreground transition-colors">
                                 <MoreHorizontal size={14} />
                               </DropdownMenuTrigger>
                               <DropdownMenuContent side="right" align="start" className="w-36">
@@ -289,23 +248,24 @@ export function Sidebar({ nav, activePage, sse, t }: {
                             </DropdownMenu>
                           </div>
                         );
-                      })}
-                      <button
-                        type="button"
-                        onClick={() => void handleCreateSession(book.id)}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-muted-foreground/60 hover:text-primary hover:bg-primary/5 transition-all"
-                      >
-                        <Plus size={12} />
-                        <span>新建会话</span>
-                      </button>
-                    </div>
-                  )}
+                      })
+                    )}
+                    {/* + 新建会话 */}
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateSession(book.id)}
+                      className="w-full flex items-center gap-2 px-10 py-1.5 text-xs text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                    >
+                      <Plus size={12} />
+                      <span>新建会话</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
 
             {books.length === 0 && (
-              <div className="px-3 py-6 text-xs text-muted-foreground/70 italic text-center border border-dashed border-border rounded-lg">
+              <div className="px-3 py-6 text-xs text-muted-foreground/50 italic text-center">
                 {t("dash.noBooks")}
               </div>
             )}
@@ -478,6 +438,21 @@ function getSessionLabel(sessionId: string, title: string | null): string {
     minute: "2-digit",
   });
   return `新会话 · ${formatted}`;
+}
+
+function formatRelativeTime(sessionId: string): string {
+  const rawTs = Number(sessionId.split("-")[0]);
+  if (!Number.isFinite(rawTs)) return "";
+  const diff = Date.now() - rawTs;
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} 天`;
+  const months = Math.floor(days / 30);
+  return `${months} 个月`;
 }
 
 function SidebarItem({ label, icon, active, onClick, badge, badgeColor }: {
