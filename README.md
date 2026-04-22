@@ -425,6 +425,16 @@ pnpm typecheck    # 类型检查
  </picture>
 </a>
 
+<div align="center">
+
+<h2>Skills Download History</h2>
+
+<a href="https://skill-history.com/narcooo/inkos">
+  <img alt="Skills Download History" src="https://skill-history.com/chart/narcooo/inkos.svg" />
+</a>
+
+</div>
+
 ## Repobeats
 
 ![Alt](https://repobeats.axiom.co/api/embed/024114415c1505a8c27fb121e3b392524e48f583.svg "Repobeats analytics image")
@@ -434,10 +444,6 @@ pnpm typecheck    # 类型检查
 <a href="https://github.com/Narcooo/inkos/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=Narcooo/inkos" />
 </a>
-
-## 下载历史
-
-[![Download History](https://skill-history.com/chart/narcooo/inkos.svg)](https://skill-history.com/narcooo/inkos)
 
 ## 许可证
 
