@@ -10,11 +10,11 @@ export const INTERNLM: InkosEndpoint = {
   defaultTemperature: 0.8,
   writingTemperature: 1,
   models: [
-    { id: "intern-latest", displayName: "Intern", maxOutput: 4096, contextWindowTokens: 262144, releasedAt: "2026-02-04" },
-    { id: "intern-s1-pro", displayName: "Intern-S1-Pro", maxOutput: 4096, contextWindowTokens: 262144, enabled: true, releasedAt: "2026-02-04" },
-    { id: "intern-s1", displayName: "Intern-S1", maxOutput: 4096, contextWindowTokens: 32768, enabled: true, releasedAt: "2025-07-26" },
-    { id: "intern-s1-mini", displayName: "Intern-S1-Mini", maxOutput: 4096, contextWindowTokens: 32768, enabled: true, releasedAt: "2025-08-20" },
-    { id: "internvl3.5-latest", displayName: "InternVL3.5", maxOutput: 4096, contextWindowTokens: 32768, releasedAt: "2025-08-28" },
-    { id: "internvl3.5-241b-a28b", displayName: "InternVL3.5-241B-A28B", maxOutput: 4096, contextWindowTokens: 32768, enabled: true, releasedAt: "2025-08-28" },
+    { id: "intern-latest", maxOutput: 4096, contextWindowTokens: 262144, releasedAt: "2026-02-04" },
+    { id: "intern-s1-pro", maxOutput: 4096, contextWindowTokens: 262144, enabled: true, releasedAt: "2026-02-04" },
+    { id: "intern-s1", maxOutput: 4096, contextWindowTokens: 32768, enabled: true, releasedAt: "2025-07-26" },
+    { id: "intern-s1-mini", maxOutput: 4096, contextWindowTokens: 32768, enabled: true, releasedAt: "2025-08-20" },
+    { id: "internvl3.5-latest", maxOutput: 4096, contextWindowTokens: 32768, releasedAt: "2025-08-28" },
+    { id: "internvl3.5-241b-a28b", maxOutput: 4096, contextWindowTokens: 32768, enabled: true, releasedAt: "2025-08-28" },
   ],
 };

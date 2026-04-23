@@ -13,7 +13,6 @@ export const ANTHROPIC: InkosEndpoint = {
   models: [
     {
       id: "claude-opus-4-6",
-      displayName: "Claude Opus 4.6",
       maxOutput: 128_000,
       contextWindowTokens: 1_000_000,
       enabled: true,
@@ -21,7 +20,6 @@ export const ANTHROPIC: InkosEndpoint = {
     },
     {
       id: "claude-sonnet-4-6",
-      displayName: "Claude Sonnet 4.6",
       maxOutput: 64_000,
       contextWindowTokens: 1_000_000,
       enabled: true,
@@ -29,21 +27,18 @@ export const ANTHROPIC: InkosEndpoint = {
     },
     {
       id: "claude-opus-4-5-20251101",
-      displayName: "Claude Opus 4.5",
       maxOutput: 64_000,
       contextWindowTokens: 200_000,
       releasedAt: "2025-11-24",
     },
     {
       id: "claude-sonnet-4-5-20250929",
-      displayName: "Claude Sonnet 4.5",
       maxOutput: 64_000,
       contextWindowTokens: 200_000,
       releasedAt: "2025-09-29",
     },
     {
       id: "claude-haiku-4-5-20251001",
-      displayName: "Claude Haiku 4.5",
       maxOutput: 64_000,
       contextWindowTokens: 200_000,
       enabled: true,
@@ -51,28 +46,24 @@ export const ANTHROPIC: InkosEndpoint = {
     },
     {
       id: "claude-opus-4-1-20250805",
-      displayName: "Claude Opus 4.1",
       maxOutput: 32_000,
       contextWindowTokens: 200_000,
       releasedAt: "2025-08-05",
     },
     {
       id: "claude-opus-4-20250514",
-      displayName: "Claude Opus 4",
       maxOutput: 32_000,
       contextWindowTokens: 200_000,
       releasedAt: "2025-05-23",
     },
     {
       id: "claude-sonnet-4-20250514",
-      displayName: "Claude Sonnet 4",
       maxOutput: 64_000,
       contextWindowTokens: 200_000,
       releasedAt: "2025-05-23",
     },
     {
       id: "claude-3-haiku-20240307",
-      displayName: "Claude 3 Haiku",
       maxOutput: 4096,
       contextWindowTokens: 200_000,
       releasedAt: "2024-03-07",

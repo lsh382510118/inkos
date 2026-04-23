@@ -10,11 +10,11 @@ export const MINIMAX_CODING_PLAN: InkosEndpoint = {
   defaultTemperature: 0.9,
   writingTemperature: 0.9,
   models: [
-    { id: "MiniMax-M2.7", displayName: "MiniMax M2.7", maxOutput: 131072, contextWindowTokens: 204800, enabled: true, releasedAt: "2026-03-18" },
-    { id: "MiniMax-M2.7-highspeed", displayName: "MiniMax M2.7 Highspeed", maxOutput: 131072, contextWindowTokens: 204800, releasedAt: "2026-03-18" },
-    { id: "MiniMax-M2.5", displayName: "MiniMax M2.5", maxOutput: 131072, contextWindowTokens: 204800, enabled: true, releasedAt: "2026-02-12" },
-    { id: "MiniMax-M2.5-highspeed", displayName: "MiniMax M2.5 Highspeed", maxOutput: 131072, contextWindowTokens: 204800, releasedAt: "2026-02-12" },
-    { id: "MiniMax-M2.1", displayName: "MiniMax M2.1", maxOutput: 131072, contextWindowTokens: 204800, releasedAt: "2025-12-23" },
-    { id: "MiniMax-M2", displayName: "MiniMax M2", maxOutput: 131072, contextWindowTokens: 204800, releasedAt: "2025-12-23" },
+    { id: "MiniMax-M2.7", maxOutput: 131072, contextWindowTokens: 204800, enabled: true, releasedAt: "2026-03-18" },
+    { id: "MiniMax-M2.7-highspeed", maxOutput: 131072, contextWindowTokens: 204800, releasedAt: "2026-03-18" },
+    { id: "MiniMax-M2.5", maxOutput: 131072, contextWindowTokens: 204800, enabled: true, releasedAt: "2026-02-12" },
+    { id: "MiniMax-M2.5-highspeed", maxOutput: 131072, contextWindowTokens: 204800, releasedAt: "2026-02-12" },
+    { id: "MiniMax-M2.1", maxOutput: 131072, contextWindowTokens: 204800, releasedAt: "2025-12-23" },
+    { id: "MiniMax-M2", maxOutput: 131072, contextWindowTokens: 204800, releasedAt: "2025-12-23" },
   ],
 };

@@ -11,7 +11,7 @@ export const DEEPSEEK: InkosEndpoint = {
   writingTemperature: 1.5,
   temperatureHint: "创意写作推荐 1.5",
   models: [
-    { id: "deepseek-chat", displayName: "DeepSeek V3.2", maxOutput: 8192, contextWindowTokens: 131072, enabled: true, releasedAt: "2025-12-01" },
-    { id: "deepseek-reasoner", displayName: "DeepSeek V3.2 Thinking", maxOutput: 65536, contextWindowTokens: 131072, enabled: true, releasedAt: "2025-12-01" },
+    { id: "deepseek-chat", maxOutput: 8192, contextWindowTokens: 131072, enabled: true, releasedAt: "2025-12-01" },
+    { id: "deepseek-reasoner", maxOutput: 65536, contextWindowTokens: 131072, enabled: true, releasedAt: "2025-12-01" },
   ],
 };

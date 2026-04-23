@@ -12,10 +12,8 @@ export type ApiProtocol =
   | "anthropic-messages";
 
 export interface InkosModel {
-  /** API 请求体里实际用的 model id（可能带斜线如 'deepseek/deepseek-v3'） */
+  /** API 请求体里实际用的 model id（可能带斜线如 'deepseek/deepseek-v3'）。UI 也直接用 id 显示 */
   readonly id: string;
-  /** UI 展示名。不填则用 id */
-  readonly displayName?: string;
   /** 模型输出上限 tokens */
   readonly maxOutput: number;
   /** 上下文窗口总 tokens */

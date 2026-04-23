@@ -135,10 +135,10 @@ export interface ModelInfo {
   readonly maxOutput?: number;
 }
 
-function toModelInfo(inkosModel: { id: string; displayName?: string; maxOutput: number; contextWindowTokens: number }): ModelInfo {
+function toModelInfo(inkosModel: { id: string; maxOutput: number; contextWindowTokens: number }): ModelInfo {
   return {
     id: inkosModel.id,
-    name: inkosModel.displayName ?? inkosModel.id,
+    name: inkosModel.id,
     contextWindow: inkosModel.contextWindowTokens,
     maxOutput: inkosModel.maxOutput,
   };

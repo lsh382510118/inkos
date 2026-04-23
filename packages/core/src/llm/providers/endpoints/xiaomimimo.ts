@@ -9,8 +9,8 @@ export const XIAOMI_MIMO: InkosEndpoint = {
   defaultTemperature: 0.7,
   writingTemperature: 1,
   models: [
-    { id: "mimo-v2-pro", displayName: "MiMo-V2 Pro", maxOutput: 131072, contextWindowTokens: 1000000, enabled: true, releasedAt: "2026-03-18" },
-    { id: "mimo-v2-omni", displayName: "MiMo-V2 Omni", maxOutput: 131072, contextWindowTokens: 262144, enabled: true, releasedAt: "2026-03-18" },
-    { id: "mimo-v2-flash", displayName: "MiMo-V2 Flash", maxOutput: 65536, contextWindowTokens: 262144, enabled: true, releasedAt: "2026-03-03" },
+    { id: "mimo-v2-pro", maxOutput: 131072, contextWindowTokens: 1000000, enabled: true, releasedAt: "2026-03-18" },
+    { id: "mimo-v2-omni", maxOutput: 131072, contextWindowTokens: 262144, enabled: true, releasedAt: "2026-03-18" },
+    { id: "mimo-v2-flash", maxOutput: 65536, contextWindowTokens: 262144, enabled: true, releasedAt: "2026-03-03" },
   ],
 };

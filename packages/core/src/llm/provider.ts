@@ -168,7 +168,7 @@ export function createLLMClient(config: LLMConfig): LLMClient {
 
   const piModel: PiModel<PiApi> = {
     id: modelCard?.deploymentName ?? config.model,
-    name: modelCard?.displayName ?? config.model,
+    name: config.model,
     api: piApi,
     provider: piProvider,
     baseUrl,

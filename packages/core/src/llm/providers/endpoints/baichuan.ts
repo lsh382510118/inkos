@@ -10,11 +10,11 @@ export const BAICHUAN: InkosEndpoint = {
   defaultTemperature: 0.3,
   writingTemperature: 1,
   models: [
-    { id: "Baichuan4", displayName: "Baichuan 4", maxOutput: 4096, contextWindowTokens: 32768, enabled: true },
-    { id: "Baichuan4-Turbo", displayName: "Baichuan 4 Turbo", maxOutput: 4096, contextWindowTokens: 32768, enabled: true },
-    { id: "Baichuan4-Air", displayName: "Baichuan 4 Air", maxOutput: 4096, contextWindowTokens: 32768, enabled: true },
-    { id: "Baichuan3-Turbo", displayName: "Baichuan 3 Turbo", maxOutput: 8192, contextWindowTokens: 32768 },
-    { id: "Baichuan3-Turbo-128k", displayName: "Baichuan 3 Turbo 128k", maxOutput: 4096, contextWindowTokens: 128000 },
-    { id: "Baichuan2-Turbo", displayName: "Baichuan 2 Turbo", maxOutput: 8192, contextWindowTokens: 32768 },
+    { id: "Baichuan4", maxOutput: 4096, contextWindowTokens: 32768, enabled: true },
+    { id: "Baichuan4-Turbo", maxOutput: 4096, contextWindowTokens: 32768, enabled: true },
+    { id: "Baichuan4-Air", maxOutput: 4096, contextWindowTokens: 32768, enabled: true },
+    { id: "Baichuan3-Turbo", maxOutput: 8192, contextWindowTokens: 32768 },
+    { id: "Baichuan3-Turbo-128k", maxOutput: 4096, contextWindowTokens: 128000 },
+    { id: "Baichuan2-Turbo", maxOutput: 8192, contextWindowTokens: 32768 },
   ],
 };
