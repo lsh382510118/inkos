@@ -647,4 +647,30 @@ describe("createLLMClient with providers lookup", () => {
     }));
     expect(client.defaults.maxTokens).toBe(64_000);
   });
+
+  it("B7: kimiCodingPlan 的 kimi-k2.5 走 API 时 piModel.id 是 deploymentName (k2p5)", async () => {
+    const { createLLMClient } = await import("../llm/provider.js");
+    const { LLMConfigSchema } = await import("../models/project.js");
+    const client = createLLMClient(LLMConfigSchema.parse({
+      provider: "anthropic",
+      service: "kimiCodingPlan",
+      model: "kimi-k2.5",
+      apiKey: "test",
+      baseUrl: "https://api.moonshot.cn/anthropic",
+    }));
+    expect(client._piModel?.id).toBe("k2p5");
+  });
+
+  it("B7: 没有 deploymentName 的 model piModel.id 保持原 config.model", async () => {
+    const { createLLMClient } = await import("../llm/provider.js");
+    const { LLMConfigSchema } = await import("../models/project.js");
+    const client = createLLMClient(LLMConfigSchema.parse({
+      provider: "anthropic",
+      service: "kimiCodingPlan",
+      model: "kimi-k2-thinking",
+      apiKey: "test",
+      baseUrl: "https://api.moonshot.cn/anthropic",
+    }));
+    expect(client._piModel?.id).toBe("kimi-k2-thinking");
+  });
 });

@@ -154,15 +154,15 @@ export interface ChatWithToolsResult {
 // === Factory ===
 
 export function createLLMClient(config: LLMConfig): LLMClient {
-  // 提前查一次 modelCard 以便给 defaults.maxTokens 做 fallback（A 组过渡期逻辑，见下面 piModel 再查一次是幂等的）
+  // 提前查一次 modelCard，用于 defaults.maxTokens 推导（下面 piModel 构造再查一次是幂等的）
   const _earlyCard = lookupModel(config.service ?? "custom", config.model);
   const defaults = {
     temperature: config.temperature ?? 0.7,
-    // fallback: agent 没传 per-call 时用这个。优先 config.maxTokens（过渡期兼容），否则 modelCard.maxOutput，否则 8192
-    maxTokens: config.maxTokens ?? _earlyCard?.maxOutput ?? 8192,
+    // A 组起：providers 接管 — 命中 modelCard 用其 maxOutput，否则 fallback 到 config.maxTokens / 8192
+    maxTokens: _earlyCard?.maxOutput ?? config.maxTokens ?? 8192,
     // cap: 只在用户显式配 maxTokensCap 时生效；默认 null = 不封顶 per-call。
     // **禁止**改成 `config.maxTokens ?? null` —— 那样会让 architect 的 per-call
-    // 16384 被用户 config.maxTokens=8192 自动裁剪，基础设定输出会被截断。
+    // 16384 被用户 config.maxTokens=8192 自动裁剪，基础设定输出被截断。
     maxTokensCap: config.maxTokensCap ?? null,
     thinkingBudget: config.thinkingBudget ?? 0,
     extra: config.extra ?? {},
