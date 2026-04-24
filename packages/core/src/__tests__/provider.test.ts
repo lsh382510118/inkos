@@ -593,4 +593,17 @@ describe("createLLMClient with providers lookup", () => {
     }));
     expect(client._piModel?.id).toBe("kimi-k2-thinking");
   });
+
+  it("Google Gemini OpenAI-compatible endpoint disables OpenAI store parameter", async () => {
+    const { createLLMClient } = await import("../llm/provider.js");
+    const { LLMConfigSchema } = await import("../models/project.js");
+    const client = createLLMClient(LLMConfigSchema.parse({
+      provider: "openai",
+      service: "google",
+      model: "gemini-2.5-flash",
+      apiKey: "test",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    }));
+    expect(client._piModel?.compat).toMatchObject({ supportsStore: false });
+  });
 });
