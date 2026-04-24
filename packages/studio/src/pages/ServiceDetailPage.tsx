@@ -6,7 +6,7 @@ import {
   matchServiceConfigEntryForDetail,
   probeServiceForDetail,
   rehydrateServiceConnectionStatus,
-  saveServiceConfigWithValidation,
+  saveServiceConfig,
   type ServiceDetailConnectionStatus as ConnectionStatus,
   type ServiceDetailDetectedConfig as DetectedConfig,
   type ServiceDetailModelInfo as ModelInfo,
@@ -169,7 +169,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
     }
     setStatus({ state: "saving" });
     try {
-      const result = await saveServiceConfigWithValidation({
+      const result = await saveServiceConfig({
         effectiveServiceId,
         serviceId,
         isCustom,
@@ -190,9 +190,6 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         setStoreModels(effectiveServiceId, result.status.models);
         setStatus(result.status);
       } else {
-        clearStoreModels(effectiveServiceId);
-        setDetectedModel("");
-        setDetectedConfig(null);
         setStatus(result.status);
       }
       await refreshServices();

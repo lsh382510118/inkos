@@ -93,7 +93,7 @@ export function matchServiceConfigEntryForDetail(
   });
 }
 
-export async function saveServiceConfigWithValidation(args: {
+export async function saveServiceConfig(args: {
   readonly effectiveServiceId: string;
   readonly serviceId: string;
   readonly isCustom: boolean;
@@ -114,20 +114,6 @@ export async function saveServiceConfigWithValidation(args: {
   const trimmedKey = args.apiKey.trim();
   const trimmedBaseUrl = args.baseUrl.trim();
 
-  let probeResult: ServiceProbeResponse | null = null;
-  if (trimmedKey) {
-    probeResult = await probeServiceForDetail(
-      args.effectiveServiceId,
-      {
-        apiKey: trimmedKey,
-        apiFormat: args.apiFormat,
-        stream: args.stream,
-        ...(args.isCustom ? { baseUrl: trimmedBaseUrl } : {}),
-      },
-      { fetchJsonImpl },
-    );
-  }
-
   await fetchJsonImpl(`/services/${encodeURIComponent(args.effectiveServiceId)}/secret`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -139,33 +125,25 @@ export async function saveServiceConfigWithValidation(args: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       service: args.effectiveServiceId,
-      ...(probeResult?.selectedModel ? { defaultModel: probeResult.selectedModel } : args.detectedModel ? { defaultModel: args.detectedModel } : {}),
+      ...(args.detectedModel ? { defaultModel: args.detectedModel } : {}),
       services: [
         {
           service: args.isCustom ? "custom" : args.serviceId,
           temperature: parseFloat(args.temperature),
-          apiFormat: probeResult?.detected?.apiFormat ?? args.apiFormat,
-          stream: typeof probeResult?.detected?.stream === "boolean" ? probeResult.detected.stream : args.stream,
+          apiFormat: args.apiFormat,
+          stream: args.stream,
           ...(args.isCustom ? {
             name: args.resolvedCustomName,
-            baseUrl: probeResult?.detected?.baseUrl ?? trimmedBaseUrl,
+            baseUrl: trimmedBaseUrl,
           } : {}),
         },
       ],
     }),
   });
 
-  if (!probeResult) {
-    return {
-      status: { state: "saved" },
-      detectedModel: "",
-      detectedConfig: null,
-    };
-  }
-
   return {
-    status: { state: "connected", models: probeResult.models ?? [] },
-    detectedModel: probeResult.selectedModel ?? "",
-    detectedConfig: probeResult.detected ?? null,
+    status: { state: "saved" },
+    detectedModel: "",
+    detectedConfig: null,
   };
 }
