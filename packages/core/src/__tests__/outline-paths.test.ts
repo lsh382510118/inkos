@@ -1,151 +1,97 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  readCharacterContext,
+  readRhythmPrinciples,
+  readRoleCards,
   readStoryFrame,
   readVolumeMap,
-  readRoleCards,
-  readCharacterContext,
-  readCurrentStateWithFallback,
-  isNewLayoutBook,
-  isCurrentStateSeedPlaceholder,
 } from "../utils/outline-paths.js";
 
+let bookDir: string;
+
+beforeEach(async () => {
+  bookDir = await mkdtemp(join(tmpdir(), "inkos-outline-paths-"));
+  await mkdir(join(bookDir, "story"), { recursive: true });
+});
+
+afterEach(async () => {
+  await rm(bookDir, { recursive: true, force: true });
+});
+
 describe("outline-paths", () => {
-  let bookDir: string;
-
-  beforeEach(async () => {
-    bookDir = await mkdtemp(join(tmpdir(), "inkos-test-book-"));
-    await mkdir(join(bookDir, "story"), { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(bookDir, { recursive: true, force: true });
-  });
-
-  // --- isNewLayoutBook ---
-
-  it("isNewLayoutBook returns false when outline/story_frame.md is missing", async () => {
-    expect(await isNewLayoutBook(bookDir)).toBe(false);
-  });
-
-  it("isNewLayoutBook returns true when outline/story_frame.md exists", async () => {
+  it("prefers outline/story_frame.md over legacy story_bible.md", async () => {
     await mkdir(join(bookDir, "story", "outline"), { recursive: true });
-    await writeFile(join(bookDir, "story", "outline", "story_frame.md"), "# frame", "utf-8");
-    expect(await isNewLayoutBook(bookDir)).toBe(true);
+    await writeFile(join(bookDir, "story", "outline", "story_frame.md"), "NEW frame prose", "utf-8");
+    await writeFile(join(bookDir, "story", "story_bible.md"), "OLD bible table", "utf-8");
+
+    const content = await readStoryFrame(bookDir, "(missing)");
+    expect(content).toBe("NEW frame prose");
   });
 
-  // --- readStoryFrame ---
+  it("falls back to legacy story_bible.md when outline/story_frame.md absent", async () => {
+    await writeFile(join(bookDir, "story", "story_bible.md"), "legacy bible", "utf-8");
 
-  it("readStoryFrame prefers new path when present", async () => {
+    const content = await readStoryFrame(bookDir, "(missing)");
+    expect(content).toBe("legacy bible");
+  });
+
+  it("returns placeholder when no story-frame source exists", async () => {
+    const content = await readStoryFrame(bookDir, "(missing)");
+    expect(content).toBe("(missing)");
+  });
+
+  it("prefers outline/volume_map.md over legacy volume_outline.md", async () => {
     await mkdir(join(bookDir, "story", "outline"), { recursive: true });
-    await writeFile(join(bookDir, "story", "outline", "story_frame.md"), "段落式内容", "utf-8");
-    await writeFile(join(bookDir, "story", "story_bible.md"), "legacy content", "utf-8");
-    expect(await readStoryFrame(bookDir)).toBe("段落式内容");
+    await writeFile(join(bookDir, "story", "outline", "volume_map.md"), "NEW map prose", "utf-8");
+    await writeFile(join(bookDir, "story", "volume_outline.md"), "OLD outline", "utf-8");
+
+    const content = await readVolumeMap(bookDir, "(missing)");
+    expect(content).toBe("NEW map prose");
   });
 
-  it("readStoryFrame falls back to legacy story_bible.md when new path missing", async () => {
-    await writeFile(join(bookDir, "story", "story_bible.md"), "legacy 条目式", "utf-8");
-    expect(await readStoryFrame(bookDir)).toBe("legacy 条目式");
-  });
-
-  it("readStoryFrame returns fallback placeholder when both paths missing", async () => {
-    expect(await readStoryFrame(bookDir, "(未创建)")).toBe("(未创建)");
-  });
-
-  // --- readVolumeMap ---
-
-  it("readVolumeMap falls back to legacy volume_outline.md", async () => {
-    await writeFile(join(bookDir, "story", "volume_outline.md"), "legacy 卷大纲", "utf-8");
-    expect(await readVolumeMap(bookDir)).toBe("legacy 卷大纲");
-  });
-
-  it("readVolumeMap prefers new path", async () => {
-    await mkdir(join(bookDir, "story", "outline"), { recursive: true });
-    await writeFile(join(bookDir, "story", "outline", "volume_map.md"), "段落式卷大纲", "utf-8");
-    await writeFile(join(bookDir, "story", "volume_outline.md"), "legacy", "utf-8");
-    expect(await readVolumeMap(bookDir)).toBe("段落式卷大纲");
-  });
-
-  // --- readRoleCards ---
-
-  it("readRoleCards returns empty when roles/ dir missing", async () => {
-    expect(await readRoleCards(bookDir)).toEqual([]);
-  });
-
-  it("readRoleCards reads major/minor role files", async () => {
+  it("reads role cards one-file-per-character from both tiers", async () => {
     const majorDir = join(bookDir, "story", "roles", "主要角色");
     const minorDir = join(bookDir, "story", "roles", "次要角色");
     await mkdir(majorDir, { recursive: true });
     await mkdir(minorDir, { recursive: true });
-    await writeFile(join(majorDir, "林辞.md"), "主角内容", "utf-8");
-    await writeFile(join(minorDir, "配角A.md"), "配角内容", "utf-8");
+    await writeFile(join(majorDir, "林辞.md"), "主角核心卡", "utf-8");
+    await writeFile(join(majorDir, "沈默.md"), "对手卡", "utf-8");
+    await writeFile(join(minorDir, "老张.md"), "次要卡", "utf-8");
+
     const cards = await readRoleCards(bookDir);
-    expect(cards.length).toBe(2);
-    const major = cards.find((c) => c.name === "林辞");
-    const minor = cards.find((c) => c.name === "配角A");
-    expect(major).toMatchObject({ tier: "major", name: "林辞", content: "主角内容" });
-    expect(minor).toMatchObject({ tier: "minor", name: "配角A", content: "配角内容" });
+    expect(cards).toHaveLength(3);
+    const byName = Object.fromEntries(cards.map((card) => [card.name, card]));
+    expect(byName["林辞"]?.tier).toBe("major");
+    expect(byName["沈默"]?.tier).toBe("major");
+    expect(byName["老张"]?.tier).toBe("minor");
   });
 
-  // --- readCharacterContext ---
-
-  it("readCharacterContext renders role cards when present", async () => {
+  it("composes role cards into character-context prose grouped by tier", async () => {
     const majorDir = join(bookDir, "story", "roles", "主要角色");
     await mkdir(majorDir, { recursive: true });
-    await writeFile(join(majorDir, "林辞.md"), "林辞的描写", "utf-8");
-    const result = await readCharacterContext(bookDir);
-    expect(result).toContain("林辞");
-    expect(result).toContain("主要角色");
+    await writeFile(join(majorDir, "林辞.md"), "## 核心标签\n沉静的观察者\n", "utf-8");
+
+    const context = await readCharacterContext(bookDir, "(empty)");
+    expect(context).toContain("林辞");
+    expect(context).toContain("主要角色");
+    expect(context).toContain("沉静的观察者");
   });
 
-  it("readCharacterContext falls back to legacy character_matrix.md", async () => {
-    await writeFile(join(bookDir, "story", "character_matrix.md"), "legacy 角色矩阵", "utf-8");
-    const result = await readCharacterContext(bookDir);
-    expect(result).toBe("legacy 角色矩阵");
+  it("falls back to legacy character_matrix.md when no role cards exist", async () => {
+    await writeFile(join(bookDir, "story", "character_matrix.md"), "legacy matrix table", "utf-8");
+
+    const context = await readCharacterContext(bookDir, "(empty)");
+    expect(context).toBe("legacy matrix table");
   });
 
-  // --- readCurrentStateWithFallback ---
+  it("reads 节奏原则.md and falls back to rhythm_principles.md", async () => {
+    await mkdir(join(bookDir, "story", "outline"), { recursive: true });
+    await writeFile(join(bookDir, "story", "outline", "节奏原则.md"), "六条原则", "utf-8");
 
-  it("readCurrentStateWithFallback returns real content when not a seed", async () => {
-    await writeFile(
-      join(bookDir, "story", "current_state.md"),
-      "# 当前状态\n\n林辞已经到达京城，正在调查失踪案。",
-      "utf-8",
-    );
-    const result = await readCurrentStateWithFallback(bookDir);
-    expect(result).toContain("林辞已经到达京城");
-  });
-
-  it("readCurrentStateWithFallback derives initial state from roles when seed placeholder", async () => {
-    await writeFile(
-      join(bookDir, "story", "current_state.md"),
-      "建书时占位，运行时由 consolidator 每章追加。",
-      "utf-8",
-    );
-    const majorDir = join(bookDir, "story", "roles", "主要角色");
-    await mkdir(majorDir, { recursive: true });
-    await writeFile(
-      join(majorDir, "林辞.md"),
-      "## 当前现状\n\n刚从边关回到京城，尚未与旧友重逢。",
-      "utf-8",
-    );
-    const result = await readCurrentStateWithFallback(bookDir);
-    expect(result).toContain("林辞");
-    expect(result).toContain("初始状态");
-  });
-
-  // --- isCurrentStateSeedPlaceholder ---
-
-  it("isCurrentStateSeedPlaceholder returns true for empty or seed text", () => {
-    expect(isCurrentStateSeedPlaceholder("")).toBe(true);
-    expect(isCurrentStateSeedPlaceholder("  ")).toBe(true);
-    expect(isCurrentStateSeedPlaceholder("建书时占位，运行时追加")).toBe(true);
-    expect(isCurrentStateSeedPlaceholder("Seeded at book creation")).toBe(true);
-  });
-
-  it("isCurrentStateSeedPlaceholder returns false for real content", () => {
-    expect(isCurrentStateSeedPlaceholder("# 状态\n\n林辞已经出发，目标是西域。这是一段很长的内容。".repeat(10))).toBe(false);
+    const content = await readRhythmPrinciples(bookDir);
+    expect(content).toBe("六条原则");
   });
 });

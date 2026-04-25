@@ -38,11 +38,13 @@ export async function resolveServiceModel(
   // Get pi-ai Model — may return undefined for model IDs not in the built-in registry
   const piModel = getModel(piProvider as any, modelId as any) as Model<Api> | undefined;
   const effectiveBaseUrl = configuredBaseUrl || piModel?.baseUrl || "";
+
   if (!effectiveBaseUrl) {
     throw new Error(
       `Cannot resolve model "${modelId}" for service "${service}": no baseUrl available.`,
     );
   }
+
   const model: Model<Api> = {
     id: modelId,
     name: piModel?.name ?? modelId,

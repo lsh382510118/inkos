@@ -883,28 +883,108 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string) {
 
   // --- Truth files ---
 
-  const TRUTH_FILES = [
+  // Flat-file whitelist — the pre-Phase-5 story root files plus dev's legacy
+  // editor targets (author_intent / current_focus / volume_outline).
+  //
+  // Phase 5 cleanup #3 moved the authoritative YAML frontmatter + outline prose
+  // into story/outline/ and character sheets into story/roles/. `story_bible.md`
+  // and `book_rules.md` now exist only as compat pointer shims — we still allow
+  // reading them so legacy books keep rendering, but the server-side writer
+  // (write_truth_file) no longer accepts them as edit targets.
+  const TRUTH_FLAT_FILES = [
     "author_intent.md", "current_focus.md",
-    "story_bible.md", "volume_outline.md", "current_state.md",
+    "story_bible.md", "book_rules.md", "volume_outline.md", "current_state.md",
     "particle_ledger.md", "pending_hooks.md", "chapter_summaries.md",
     "subplot_board.md", "emotional_arcs.md", "character_matrix.md",
-    "style_guide.md", "parent_canon.md", "fanfic_canon.md", "book_rules.md",
+    "style_guide.md", "parent_canon.md", "fanfic_canon.md",
   ];
 
-  app.get("/api/v1/books/:id/truth/:file", async (c) => {
-    const id = c.req.param("id");
-    const file = c.req.param("file");
+  // Authoritative Phase 5 paths — prose outline + role sheets live under
+  // dedicated subdirectories of story/. The full path (relative to story/) is
+  // matched literally here. `节奏原则.md` / `rhythm_principles.md` is optional
+  // after Phase 5 consolidation (rhythm lives in volume_map's closing paragraph);
+  // the entries stay whitelisted for legacy books and manual overrides.
+  const TRUTH_OUTLINE_FILES = [
+    "outline/story_frame.md",
+    "outline/volume_map.md",
+    "outline/节奏原则.md",
+    "outline/rhythm_principles.md",
+  ];
 
-    if (!TRUTH_FILES.includes(file)) {
+  // Pointer shims that the runtime no longer treats as authoritative. The
+  // GET handler tags them with `legacy: true` so the UI can surface that the
+  // edits won't land where the user expects.
+  const LEGACY_SHIM_FILES = new Set(["story_bible.md", "book_rules.md"]);
+
+  /**
+   * Validate a requested truth-file path:
+   *   1. Must be one of the declared flat files, an outline/* allow-listed
+   *      entry, or a roles/**\/*.md file under 主要角色/ | 次要角色/.
+   *   2. Must resolve to a path inside bookDir/story/ (no `..`, no absolute
+   *      paths, no traversal via the tier-name segment).
+   */
+  function resolveTruthFilePath(bookDir: string, file: string): string | null {
+    // Reject absolute paths, traversal, null bytes outright.
+    if (!file || file.includes("\0") || file.startsWith("/") || file.includes("..")) {
+      return null;
+    }
+
+    // Phase hotfix 3: accept both Chinese and English locale role dirs so
+    // English-layout books (roles/major, roles/minor) are reachable through
+    // Studio. The runtime reader (utils/outline-paths.ts:75) already scans
+    // both — Studio used to drop English books to read-only.
+    const allowed =
+      TRUTH_FLAT_FILES.includes(file)
+      || TRUTH_OUTLINE_FILES.includes(file)
+      || /^roles\/(主要角色|次要角色|major|minor)\/[^/]+\.md$/.test(file);
+
+    if (!allowed) return null;
+
+    const storyDir = join(bookDir, "story");
+    const resolved = join(storyDir, file);
+    // Path safety: resolved absolute path must sit inside storyDir. `join`
+    // collapses any `..` segments, so compare against the storyDir prefix.
+    const storyPrefix = storyDir.endsWith("/") ? storyDir : storyDir + "/";
+    if (!resolved.startsWith(storyPrefix) && resolved !== storyDir) {
+      return null;
+    }
+    return resolved;
+  }
+
+  async function fileExists(path: string): Promise<boolean> {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Use `:file{.+}` wildcard so nested paths (outline/..., roles/.../...) match.
+  app.get("/api/v1/books/:id/truth/:file{.+}", async (c) => {
+    const file = c.req.param("file");
+    const id = c.req.param("id");
+
+    const bookDir = state.bookDir(id);
+    const resolved = resolveTruthFilePath(bookDir, file);
+    if (!resolved) {
       return c.json({ error: "Invalid truth file" }, 400);
     }
 
-    const bookDir = state.bookDir(id);
+    // Phase 5: new-layout books keep the authoritative prose under outline/.
+    // A legacy book may only have story_bible.md / book_rules.md on disk —
+    // we still serve those for read-only display, but flag them so the UI
+    // can warn users their edits won't reach the runtime.
+    // Hotfix: only tag as legacy when the book actually HAS the new layout.
+    // Pre-Phase-5 books use story_bible/book_rules as the authoritative source.
+    const { isNewLayoutBook } = await import("@actalk/inkos-core");
+    const legacy = LEGACY_SHIM_FILES.has(file) && await isNewLayoutBook(bookDir);
+
     try {
-      const content = await readFile(join(bookDir, "story", file), "utf-8");
-      return c.json({ file, content });
+      const content = await readFile(resolved, "utf-8");
+      return c.json({ file, content, ...(legacy ? { legacy: true } : {}) });
     } catch {
-      return c.json({ file, content: null });
+      return c.json({ file, content: null, ...(legacy ? { legacy: true } : {}) });
     }
   });
 
@@ -1321,15 +1401,56 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string) {
     const id = c.req.param("id");
     const bookDir = state.bookDir(id);
     const storyDir = join(bookDir, "story");
+
+    async function listDir(subdir: string): Promise<string[]> {
+      try {
+        const entries = await readdir(join(storyDir, subdir));
+        return entries.filter((f) => f.endsWith(".md") || f.endsWith(".json"));
+      } catch {
+        return [];
+      }
+    }
+
+    // Hotfix: only tag shim files as legacy when the book has the new layout.
+    const { isNewLayoutBook } = await import("@actalk/inkos-core");
+    const newLayout = await isNewLayoutBook(bookDir);
+
+    async function describe(relPath: string): Promise<{ readonly name: string; readonly size: number; readonly preview: string; readonly legacy?: true } | null> {
+      try {
+        const content = await readFile(join(storyDir, relPath), "utf-8");
+        const isShim = LEGACY_SHIM_FILES.has(relPath) && newLayout;
+        const entry: { readonly name: string; readonly size: number; readonly preview: string; readonly legacy?: true } =
+          isShim
+            ? { name: relPath, size: content.length, preview: content.slice(0, 200), legacy: true }
+            : { name: relPath, size: content.length, preview: content.slice(0, 200) };
+        return entry;
+      } catch {
+        return null;
+      }
+    }
+
     try {
-      const files = await readdir(storyDir);
-      const mdFiles = files.filter((f) => f.endsWith(".md") || f.endsWith(".json"));
-      const result = await Promise.all(
-        mdFiles.map(async (f) => {
-          const content = await readFile(join(storyDir, f), "utf-8");
-          return { name: f, size: content.length, preview: content.slice(0, 200) };
-        }),
-      );
+      // Flat story/ files (legacy + runtime logs)
+      const flatFiles = (await listDir(".")).filter((f) => !f.startsWith("outline") && !f.startsWith("roles"));
+      // Phase 5 outline/ files
+      const outlineFiles = (await listDir("outline")).map((f) => `outline/${f}`);
+      // Phase 5 roles/主要角色 + roles/次要角色, plus Phase hotfix 3
+      // English-locale equivalents so en-language books are visible.
+      const majorRolesZh = (await listDir("roles/主要角色")).map((f) => `roles/主要角色/${f}`);
+      const minorRolesZh = (await listDir("roles/次要角色")).map((f) => `roles/次要角色/${f}`);
+      const majorRolesEn = (await listDir("roles/major")).map((f) => `roles/major/${f}`);
+      const minorRolesEn = (await listDir("roles/minor")).map((f) => `roles/minor/${f}`);
+
+      const all = [
+        ...flatFiles,
+        ...outlineFiles,
+        ...majorRolesZh,
+        ...minorRolesZh,
+        ...majorRolesEn,
+        ...minorRolesEn,
+      ];
+      const described = await Promise.all(all.map(describe));
+      const result = described.filter((x): x is NonNullable<typeof x> => x !== null);
       return c.json({ files: result });
     } catch {
       return c.json({ files: [] });
@@ -2085,17 +2206,31 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string) {
 
   // --- Truth file edit ---
 
-  app.put("/api/v1/books/:id/truth/:file", async (c) => {
+  app.put("/api/v1/books/:id/truth/:file{.+}", async (c) => {
     const id = c.req.param("id");
     const file = c.req.param("file");
-    if (!TRUTH_FILES.includes(file)) {
+    const bookDir = state.bookDir(id);
+    const resolved = resolveTruthFilePath(bookDir, file);
+    if (!resolved) {
       return c.json({ error: "Invalid truth file" }, 400);
     }
+    // Legacy pointer shims are read-only in new-layout books: writing
+    // story_bible.md or book_rules.md does nothing at runtime (the pipeline
+    // reads outline/ instead). For pre-Phase-5 books these ARE authoritative.
+    if (LEGACY_SHIM_FILES.has(file)) {
+      const { isNewLayoutBook } = await import("@actalk/inkos-core");
+      if (await isNewLayoutBook(bookDir)) {
+        return c.json(
+          { error: "Legacy compat shim; edit outline/story_frame.md instead" },
+          400,
+        );
+      }
+    }
     const { content } = await c.req.json<{ content: string }>();
-    const bookDir = state.bookDir(id);
     const { writeFile: writeFileFs, mkdir: mkdirFs } = await import("node:fs/promises");
-    await mkdirFs(join(bookDir, "story"), { recursive: true });
-    await writeFileFs(join(bookDir, "story", file), content, "utf-8");
+    const { dirname: dirnameFs } = await import("node:path");
+    await mkdirFs(dirnameFs(resolved), { recursive: true });
+    await writeFileFs(resolved, content, "utf-8");
     return c.json({ ok: true });
   });
 

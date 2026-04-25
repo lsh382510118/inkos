@@ -876,6 +876,43 @@ describe("CLI integration", () => {
         await writeFile(join(bookDir, "chapters", "index.json"), "[]", "utf-8");
       });
 
+      const plannedGoal = "Ignore the guild chase and focus on the mentor conflict.";
+      const intentMarkdown = [
+        "# Chapter Intent",
+        "",
+        "## Goal",
+        plannedGoal,
+        "",
+        "## Outline Node",
+        "(not found)",
+        "",
+        "## Must Keep",
+        "- none",
+        "",
+        "## Must Avoid",
+        "- none",
+        "",
+        "## Style Emphasis",
+        "- none",
+        "",
+        "## Conflicts",
+        "- none",
+        "",
+        "## Chapter Brief",
+        "- chapterType: 推进",
+        "- isGoldenOpening: false",
+        "",
+        "### Beat Outline",
+        "- opening: Track the merchant guild trail",
+        "",
+        "### Hook Plan",
+        "- none",
+        "",
+        "### Props And Setting",
+        "- none",
+        "",
+      ].join("\n");
+
       await Promise.all([
         writeFile(join(storyDir, "author_intent.md"), "# Author Intent\n\nKeep the story centered on the mentor conflict.\n", "utf-8"),
         writeFile(join(storyDir, "current_focus.md"), "# Current Focus\n\nBring focus back to the mentor conflict.\n", "utf-8"),
@@ -884,11 +921,12 @@ describe("CLI integration", () => {
         writeFile(join(storyDir, "book_rules.md"), "---\nprohibitions:\n  - Do not reveal the mastermind\n---\n\n# Book Rules\n", "utf-8"),
         writeFile(join(storyDir, "current_state.md"), "# Current State\n\n- Lin Yue still hides the broken oath token.\n", "utf-8"),
         writeFile(join(storyDir, "pending_hooks.md"), "# Pending Hooks\n\n- Why the mentor vanished after the trial.\n", "utf-8"),
+        writeFile(join(storyDir, "runtime", "chapter-0001.intent.md"), intentMarkdown, "utf-8"),
       ]);
     });
 
-    it("runs plan chapter and returns the generated intent path in JSON mode", async () => {
-      const output = run(["plan", "chapter", "cli-book", "--json", "--context", "Ignore the guild chase and focus on the mentor conflict."]);
+    it("loads a pre-planned intent and returns the generated intent path in JSON mode", async () => {
+      const output = run(["compose", "chapter", "cli-book", "--json"]);
       const data = JSON.parse(output);
 
       expect(data.bookId).toBe("cli-book");
@@ -912,16 +950,14 @@ describe("CLI integration", () => {
       await expect(stat(join(projectDir, "books", "cli-book", data.tracePath))).resolves.toBeTruthy();
     });
 
-    it("reuses the planned intent when compose runs without a new context", async () => {
-      const plannedGoal = "Ignore the guild chase and focus on the mentor conflict.";
-      run(["plan", "chapter", "cli-book", "--context", plannedGoal]);
-
+    it("re-plans from outline when compose runs without a new context (Phase 1: persisted plans disabled)", async () => {
       const output = run(["compose", "chapter", "cli-book", "--json"]);
       const data = JSON.parse(output);
       const intentMarkdown = await readFile(join(projectDir, "books", "cli-book", data.intentPath), "utf-8");
 
-      expect(data.goal).toBe(plannedGoal);
-      expect(intentMarkdown).toContain(plannedGoal);
+      expect(typeof data.goal).toBe("string");
+      expect(data.goal.length).toBeGreaterThan(0);
+      expect(intentMarkdown).toContain(data.goal);
     });
   });
 

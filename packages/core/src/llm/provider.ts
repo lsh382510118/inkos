@@ -30,6 +30,12 @@ export interface StreamProgress {
 
 export type OnStreamProgress = (progress: StreamProgress) => void;
 
+const INKOS_USER_AGENT = "InkOS/1.3.5";
+
+function mergeUserAgent(headers?: Record<string, string>): Record<string, string> {
+  return { "User-Agent": INKOS_USER_AGENT, ...(headers ?? {}) };
+}
+
 export function createStreamMonitor(
   onProgress?: OnStreamProgress,
   intervalMs: number = 30000,
@@ -101,6 +107,12 @@ export interface LLMClient {
      * 来自 providers bank 的 modelCard.maxOutput（v2.0.0 起）。
      */
     readonly maxTokens: number;
+    /**
+     * Legacy mock compatibility only. v2 provider resolution no longer caps
+     * per-call maxTokens from project config; model max output comes from the
+     * provider bank.
+     */
+    readonly maxTokensCap?: number | null;
     readonly thinkingBudget: number;
     readonly extra: Record<string, unknown>;
   };
@@ -532,6 +544,7 @@ async function chatCompletionViaCustomAnthropicCompatible(
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/messages`, {
     method: "POST",
     headers: {
+      "User-Agent": INKOS_USER_AGENT,
       "x-api-key": client._apiKey ?? "",
       "anthropic-version": "2023-06-01",
       "Content-Type": "application/json",
@@ -975,7 +988,7 @@ async function chatCompletionViaPiAi(
     temperature: resolved.temperature,
     maxTokens: resolved.maxTokens,
     apiKey: client._apiKey,
-    headers: piModel.headers,
+    headers: mergeUserAgent(piModel.headers),
   };
 
   if (!client.stream) {
@@ -1071,7 +1084,7 @@ async function chatWithToolsViaPiAi(
     temperature: resolved.temperature,
     maxTokens: resolved.maxTokens,
     apiKey: client._apiKey,
-    headers: piModel.headers,
+    headers: mergeUserAgent(piModel.headers),
   };
 
   if (!client.stream) {

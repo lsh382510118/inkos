@@ -256,6 +256,7 @@ describe("PipelineRunner structured-state memory sync", () => {
       passed: true,
       issues: [],
       summary: "clean",
+      overallScore: 90,
       tokenUsage: ZERO_USAGE,
     });
     vi.spyOn(StateValidatorAgent.prototype, "validate").mockResolvedValue({

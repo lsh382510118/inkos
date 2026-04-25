@@ -3,7 +3,6 @@ import type { BookConfig } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import type { ContextPackage, RuleStack } from "../models/input-governance.js";
 import { readGenreProfile, readBookRules } from "./rules-reader.js";
-import { readStoryFrame, readVolumeMap, readCharacterContext, readCurrentStateWithFallback } from "../utils/outline-paths.js";
 import { parseWriterOutput, type ParsedWriterOutput } from "./writer-parser.js";
 import { buildGovernedMemoryEvidenceBlocks } from "../utils/governed-context.js";
 import {
@@ -15,6 +14,12 @@ import { countChapterLength, resolveLengthCountingMode } from "../utils/length-m
 import { retrieveMemorySelection } from "../utils/memory-retrieval.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import {
+  readStoryFrame,
+  readVolumeMap,
+  readCharacterContext,
+  readCurrentStateWithFallback,
+} from "../utils/outline-paths.js";
 
 export interface AnalyzeChapterInput {
   readonly book: BookConfig;
@@ -40,20 +45,24 @@ export class ChapterAnalyzerAgent extends BaseAgent {
       await readGenreProfile(this.ctx.projectRoot, book.genre);
     const resolvedLanguage = book.language ?? genreProfile.language;
 
-    // Read current truth files (same set as writer.ts)
+    // Read current truth files (same set as writer.ts). Phase 5: prefer the
+    // new prose outline (story_frame / volume_map) and roles/ directory.
+    const placeholder = this.missingFilePlaceholder(resolvedLanguage);
     const [
       currentState, ledger, hooks,
       subplotBoard, emotionalArcs, characterMatrix,
       storyBible, volumeOutline,
     ] = await Promise.all([
-      readCurrentStateWithFallback(bookDir),
+      // Phase 5 consolidation: derive initial state from roles + seed hooks
+      // when current_state.md is still the architect seed placeholder.
+      readCurrentStateWithFallback(bookDir, placeholder),
       this.readFileOrDefault(join(bookDir, "story/particle_ledger.md"), resolvedLanguage),
       this.readFileOrDefault(join(bookDir, "story/pending_hooks.md"), resolvedLanguage),
       this.readFileOrDefault(join(bookDir, "story/subplot_board.md"), resolvedLanguage),
       this.readFileOrDefault(join(bookDir, "story/emotional_arcs.md"), resolvedLanguage),
-      readCharacterContext(bookDir),
-      readStoryFrame(bookDir),
-      readVolumeMap(bookDir),
+      readCharacterContext(bookDir, placeholder),
+      readStoryFrame(bookDir, placeholder),
+      readVolumeMap(bookDir, placeholder),
     ]);
     const parsedBookRules = await readBookRules(bookDir);
     const bookRulesBody = parsedBookRules?.body ?? "";
